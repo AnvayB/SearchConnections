@@ -1,6 +1,8 @@
 # LinkedIn Connections Search Tool
-
 A web-based search tool for exploring LinkedIn connections data from multiple sources.
+
+![image](https://github.com/user-attachments/assets/9fa4f7c2-3781-40ea-b861-9507719b7961)
+
 
 ## Features
 
