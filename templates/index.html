@@ -172,6 +172,10 @@
                         <div class="stats-number" id="anilCount">0</div>
                         <div class="text-muted">Anil's Connections (Close)</div>
                     </div>
+                    <div class="stats-card mx-2" style="width: 300px;">
+                        <div class="stats-number" id="bilwaCount">0</div>
+                        <div class="text-muted">Bilwa's Connections</div>
+                    </div>
                 </div>
             </div>
 
@@ -229,6 +233,7 @@
             // Update stats
             document.getElementById('anvayCount').textContent = data.anvay_count;
             document.getElementById('anilCount').textContent = data.anil_count;
+            document.getElementById('bilwaCount').textContent = data.bilwa_count;
             statsContainer.style.display = 'block';
 
             let html = `<h3 class="mb-4">Search Results for: <span class="text-primary">${data.company}</span></h3>`;
@@ -323,6 +328,52 @@
                 `;
             } else {
                 html += '<p class="text-muted">No close connections found</p>';
+            }
+            
+            html += '</div></div>';
+
+            // Bilwa's connections
+            html += `
+                <div class="result-card">
+                    <div class="result-header">
+                        <i class="fas fa-user-graduate"></i> Bilwa's Connections (${data.bilwa_count} results)
+                    </div>
+                    <div class="table-container">
+            `;
+
+            if (data.bilwa_matches.length > 0) {
+                html += `
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Company</th>
+                                    <th>Position</th>
+                                    <th>LinkedIn</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                data.bilwa_matches.forEach(person => {
+                    html += `
+                        <tr>
+                            <td><strong>${person['First Name']} ${person['Last Name']}</strong></td>
+                            <td>${person['Company']}</td>
+                            <td>${person['Position']}</td>
+                            <td><a href="${person['URL']}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fab fa-linkedin"></i> View</a></td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                html += '<p class="text-muted">No connections found</p>';
             }
             
             html += '</div></div>';
