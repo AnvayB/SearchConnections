@@ -17,3 +17,11 @@ pull:
 check:
 	git branch
 	git status
+
+user-reset:
+	git config user.name "AnvayB"
+	git config user.email "anvay.bhanap@gmail.com"
+
+user-check:
+	git config user.name
+	git config user.email
