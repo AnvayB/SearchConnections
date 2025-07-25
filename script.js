@@ -43,16 +43,39 @@ const csvFiles = {
     return Array.from(set).sort();
   }
   
-  function searchCompany(companyName) {
-    const lc = companyName.trim().toLowerCase();
-  
-    const anvay_matches = dataStore.anvay.filter(d => d.Company?.toLowerCase() === lc);
+  function searchCompany(companyName, exactCaseSensitive = false) {
+    if (exactCaseSensitive) {
+      // Only show exact, case-sensitive matches
+      const anvay_matches = dataStore.anvay.filter(d => d.Company === companyName);
+      const anil_matches = dataStore.anil.filter(d => d.Company === companyName && ["1", "2", 1, 2].includes(String(d.Closeness).trim()));
+      const bilwa_matches = dataStore.bilwa.filter(d => d.Company === companyName);
+      const result = {
+        company: companyName,
+        anvay_matches,
+        anil_matches,
+        bilwa_matches,
+        anvay_count: anvay_matches.length,
+        anil_count: anil_matches.length,
+        bilwa_count: bilwa_matches.length
+      };
+      displayResults(result);
+      return;
+    }
+    const lcWords = companyName.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    
+    function matchesAnyWord(company) {
+      if (!company) return false;
+      const companyLc = company.toLowerCase();
+      return lcWords.some(word => companyLc.includes(word));
+    }
+
+    const anvay_matches = dataStore.anvay.filter(d => matchesAnyWord(d.Company));
     const anil_matches = dataStore.anil.filter(d => {
       const closeness = String(d.Closeness).trim();
-      return d.Company?.toLowerCase() === lc && ["1", "2", 1, 2].includes(closeness);
+      return matchesAnyWord(d.Company) && ["1", "2", 1, 2].includes(closeness);
     });
-    const bilwa_matches = dataStore.bilwa.filter(d => d.Company?.toLowerCase() === lc);
-  
+    const bilwa_matches = dataStore.bilwa.filter(d => matchesAnyWord(d.Company));
+
     const result = {
       company: companyName,
       anvay_matches,
@@ -62,7 +85,7 @@ const csvFiles = {
       anil_count: anil_matches.length,
       bilwa_count: bilwa_matches.length
     };
-  
+
     displayResults(result);
   }
   
@@ -85,8 +108,13 @@ const csvFiles = {
   }
   
   function createResultSection(title, data, includeCloseness) {
+    let sectionClass = '';
+    if (title.includes("Anvay")) sectionClass = 'result-anvay';
+    else if (title.includes("Anil")) sectionClass = 'result-anil';
+    else if (title.includes("Bilwa")) sectionClass = 'result-bilwa';
+
     let html = `
-      <div class="result-card">
+      <div class="result-card ${sectionClass} mb-8">
         <div class="result-header">${title} (${data.length} results)</div>
         <div class="table-container">
     `;
@@ -110,11 +138,19 @@ const csvFiles = {
       `;
   
       data.forEach(person => {
+        let closenessClass = '';
+        if (person['Closeness'] === "1.0" || person['Closeness'] === 1 || person['Closeness'] === "1") {
+          closenessClass = 'badge-closeness-1';
+        } else if (person['Closeness'] === "2.0" || person['Closeness'] === 2 || person['Closeness'] === "2") {
+          closenessClass = 'badge-closeness-2';
+        } else {
+          closenessClass = 'badge-closeness';
+        }
         html += `<tr>
           <td><strong>${person['First Name']} ${person['Last Name']}</strong></td>
           <td>${person['Company']}</td>
           <td>${person['Position']}</td>
-          ${includeCloseness ? `<td><span class="badge ${person['Closeness'] === "1.0" ? 'badge-closeness-1' : 'badge-closeness'}">${person['Closeness']}</span></td>` : ''}
+          ${includeCloseness ? `<td><span class="${closenessClass}">${person['Closeness']}</span></td>` : ''}
           <td><a href="${person['URL']}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fab fa-linkedin"></i> View</a></td>
         </tr>`;
       });
@@ -188,7 +224,7 @@ const csvFiles = {
   function selectSuggestion(company) {
     document.getElementById('companySearch').value = company;
     document.getElementById('companySuggestions').style.display = 'none';
-    searchCompany(company);
+    searchCompany(company, true); // exact, case-sensitive
   }
   
   document.addEventListener('DOMContentLoaded', loadAllCSVs);

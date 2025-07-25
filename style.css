@@ -1,0 +1,50 @@
+/* Add or update these styles for result sections */
+.result-card {
+  padding: 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  margin-bottom: 2rem;
+  background: #fff;
+}
+/* Match result section colors to the count cards */
+.result-anvay {
+  border: 2px solid green; /* teal-200 */
+  background:  rgb(221, 244, 251); /* from-teal-200 to-lime-200 */
+}
+.result-anil {
+  border: 2px solid red; /* yellow-200 */
+  background:  rgb(221, 244, 251); /* from-teal-200 to-lime-200 */
+
+}
+.result-bilwa {
+  border: 2px solid blue; /* sky-200 */
+  background:  rgb(221, 244, 251); /* from-teal-200 to-lime-200 */
+
+}
+.result-header {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #333;
+}
+/* Closeness badge styles */
+.badge-closeness-1 {
+  border: 2px solid #22c55e; /* green-500 */
+  background: #bbf7d0;      /* green-200 */
+  color: #166534;           /* green-800 */
+  font-weight: 700;
+  border-radius: 0.5rem;
+  padding: 0.25em 0.75em;
+  font-size: 1em;
+  display: inline-block;
+}
+.badge-closeness-2 {
+  border: 2px solid #eab308; /* yellow-500 */
+  background: #fef9c3;      /* yellow-200 */
+  color: #92400e;           /* yellow-800 */
+  font-weight: 700;
+  border-radius: 0.5rem;
+  padding: 0.25em 0.75em;
+  font-size: 1em;
+  display: inline-block;
+} 
