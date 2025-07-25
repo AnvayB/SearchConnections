@@ -1,6 +1,3 @@
-start:
-	python app.py
-
 add:
 	git status
 	git add .
