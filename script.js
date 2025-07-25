@@ -44,8 +44,53 @@ const csvFiles = {
   }
   
   function searchCompany(companyName, exactCaseSensitive = false) {
+    // Support multiple companies (comma-separated)
+    const companyNames = companyName.split(',').map(s => s.trim()).filter(Boolean);
+    if (companyNames.length > 1) {
+      // Multi-company search: gather results for each
+      const results = companyNames.map(name => {
+        if (exactCaseSensitive) {
+          const anvay_matches = dataStore.anvay.filter(d => d.Company === name);
+          const anil_matches = dataStore.anil.filter(d => d.Company === name && ["1", "2", 1, 2].includes(String(d.Closeness).trim()));
+          const bilwa_matches = dataStore.bilwa.filter(d => d.Company === name);
+          return {
+            company: name,
+            anvay_matches,
+            anil_matches,
+            bilwa_matches,
+            anvay_count: anvay_matches.length,
+            anil_count: anil_matches.length,
+            bilwa_count: bilwa_matches.length
+          };
+        } else {
+          const lcWords = name.trim().toLowerCase().split(/\s+/).filter(Boolean);
+          function matchesAnyWord(company) {
+            if (!company) return false;
+            const companyLc = company.toLowerCase();
+            return lcWords.some(word => companyLc.includes(word));
+          }
+          const anvay_matches = dataStore.anvay.filter(d => matchesAnyWord(d.Company));
+          const anil_matches = dataStore.anil.filter(d => {
+            const closeness = String(d.Closeness).trim();
+            return matchesAnyWord(d.Company) && ["1", "2", 1, 2].includes(closeness);
+          });
+          const bilwa_matches = dataStore.bilwa.filter(d => matchesAnyWord(d.Company));
+          return {
+            company: name,
+            anvay_matches,
+            anil_matches,
+            bilwa_matches,
+            anvay_count: anvay_matches.length,
+            anil_count: anil_matches.length,
+            bilwa_count: bilwa_matches.length
+          };
+        }
+      });
+      displayResults(results, true); // true = multi-company
+      return;
+    }
+    // Single company (existing logic)
     if (exactCaseSensitive) {
-      // Only show exact, case-sensitive matches
       const anvay_matches = dataStore.anvay.filter(d => d.Company === companyName);
       const anil_matches = dataStore.anil.filter(d => d.Company === companyName && ["1", "2", 1, 2].includes(String(d.Closeness).trim()));
       const bilwa_matches = dataStore.bilwa.filter(d => d.Company === companyName);
@@ -62,20 +107,17 @@ const csvFiles = {
       return;
     }
     const lcWords = companyName.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    
     function matchesAnyWord(company) {
       if (!company) return false;
       const companyLc = company.toLowerCase();
       return lcWords.some(word => companyLc.includes(word));
     }
-
     const anvay_matches = dataStore.anvay.filter(d => matchesAnyWord(d.Company));
     const anil_matches = dataStore.anil.filter(d => {
       const closeness = String(d.Closeness).trim();
       return matchesAnyWord(d.Company) && ["1", "2", 1, 2].includes(closeness);
     });
     const bilwa_matches = dataStore.bilwa.filter(d => matchesAnyWord(d.Company));
-
     const result = {
       company: companyName,
       anvay_matches,
@@ -85,36 +127,62 @@ const csvFiles = {
       anil_count: anil_matches.length,
       bilwa_count: bilwa_matches.length
     };
-
     displayResults(result);
   }
   
-  function displayResults(data) {
+  function displayResults(data, isMulti = false) {
     const statsContainer = document.getElementById('statsContainer');
     const resultsContainer = document.getElementById('resultsContainer');
   
+    if (isMulti) {
+      // Hide stats for multi-company
+      statsContainer.style.display = 'none';
+      let html = '';
+      data.forEach((result, idx) => {
+        const highlightClass = `company-highlight-${idx % 5}`;
+        html += `<h3 class="mb-4 mt-8">Results for: <span class="text-primary">${result.company}</span></h3>`;
+        if (result.anvay_matches.length > 0) {
+          html += createResultSection("Anvay's Connections", result.anvay_matches, false, highlightClass);
+        }
+        if (result.anil_matches.length > 0) {
+          html += createResultSection("Anil's Close Connections", result.anil_matches, true, highlightClass);
+        }
+        if (result.bilwa_matches.length > 0) {
+          html += createResultSection("Bilwa's Connections", result.bilwa_matches, false, highlightClass);
+        }
+      });
+      resultsContainer.innerHTML = html;
+      return;
+    }
+  
+    // Single company
     statsContainer.style.display = 'flex';
     statsContainer.style.flexDirection = 'row';
     document.getElementById('anvayCount').textContent = data.anvay_count;
     document.getElementById('anilCount').textContent = data.anil_count;
     document.getElementById('bilwaCount').textContent = data.bilwa_count;
-  
     let html = `<h3 class="mb-4">Search Results for: <span class="text-primary">${data.company}</span></h3>`;
-    html += createResultSection("Anvay's Connections", data.anvay_matches, false);
-    html += createResultSection("Anil's Close Connections", data.anil_matches, true);
-    html += createResultSection("Bilwa's Connections", data.bilwa_matches, false);
-  
+    if (data.anvay_matches.length > 0) {
+      html += createResultSection("Anvay's Connections", data.anvay_matches, false);
+    }
+    if (data.anil_matches.length > 0) {
+      html += createResultSection("Anil's Close Connections", data.anil_matches, true);
+    }
+    if (data.bilwa_matches.length > 0) {
+      html += createResultSection("Bilwa's Connections", data.bilwa_matches, false);
+    }
     resultsContainer.innerHTML = html;
   }
   
-  function createResultSection(title, data, includeCloseness) {
+  function createResultSection(title, data, includeCloseness, highlightClass = '') {
     let sectionClass = '';
     if (title.includes("Anvay")) sectionClass = 'result-anvay';
     else if (title.includes("Anil")) sectionClass = 'result-anil';
     else if (title.includes("Bilwa")) sectionClass = 'result-bilwa';
-
+    let allClasses = `result-card ${sectionClass} mb-8`;
+    if (highlightClass) allClasses += ` ${highlightClass}`;
     let html = `
-      <div class="result-card ${sectionClass} mb-8">
+      <div class="${allClasses}">
         <div class="result-header">${title} (${data.length} results)</div>
         <div class="table-container">
     `;
