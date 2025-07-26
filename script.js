@@ -157,7 +157,7 @@ const csvFiles = {
   
     // Single company
     statsContainer.style.display = 'flex';
-    statsContainer.style.flexDirection = 'row';
+    // The flex direction is now handled by CSS classes (flex-col sm:flex-row)
     document.getElementById('anvayCount').textContent = data.anvay_count;
     document.getElementById('anilCount').textContent = data.anil_count;
     document.getElementById('bilwaCount').textContent = data.bilwa_count;

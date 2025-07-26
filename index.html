@@ -22,52 +22,52 @@
 </head>
 <body class="bg-gradient-to-br from-indigo-400 to-purple-600 min-h-screen font-sans text-gray-800">
 
-  <div class="container mx-auto p-4">
-    <div class="bg-white/90 rounded-2xl shadow-xl px-6 py-10 max-w-6xl mx-auto">
-      <div class="text-center mb-8">
-        <h1 class="text-4xl font-extrabold text-indigo-700">
+  <div class="container mx-auto p-2 sm:p-4">
+    <div class="bg-white/90 rounded-2xl shadow-xl px-4 sm:px-6 py-6 sm:py-10 max-w-6xl mx-auto">
+      <div class="text-center mb-6 sm:mb-8">
+        <h1 class="text-2xl sm:text-4xl font-extrabold text-indigo-700">
           <i class="fas fa-search me-2"></i> LinkedIn Connections Search
         </h1>
-        <p class="text-gray-600 mt-2 text-lg">Search through your LinkedIn connections by company name</p>
+        <p class="text-gray-600 mt-2 text-base sm:text-lg">Search through your LinkedIn connections by company name</p>
       </div>
 
-      <div class="bg-gradient-to-r from-pink-400 to-red-400 p-6 rounded-xl shadow mb-6">
-        <div class="flex flex-col md:flex-row items-center gap-4">
-          <div class="relative w-full md:w-4/5">
+      <div class="bg-gradient-to-r from-pink-400 to-red-400 p-4 sm:p-6 rounded-xl shadow mb-6">
+        <div class="flex flex-col gap-4">
+          <div class="relative w-full">
             <input
               type="text"
               id="companySearch"
               placeholder="Enter company name (e.g., Amazon, Google, Microsoft)"
-              class="w-full rounded-full px-5 py-3 pr-12 text-lg shadow focus:outline-none focus:ring-2 focus:ring-white"
+              class="w-full rounded-full px-4 sm:px-5 py-3 pr-12 text-base sm:text-lg shadow focus:outline-none focus:ring-2 focus:ring-white"
             />
             <button id="clearSearchBtn" type="button" class="absolute right-10 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none text-xl hidden" aria-label="Clear search">&times;</button>
             <div id="companySuggestions" class="company-suggestions absolute w-full z-20 bg-white rounded-b-lg border border-gray-300 shadow-lg max-h-60 overflow-y-auto hidden"></div>
           </div>
           <button
             id="searchBtn"
-            class="rounded-full bg-white/20 text-white font-bold px-6 py-3 hover:bg-white/30 transition"
+            class="rounded-full bg-white/20 text-white font-bold px-6 py-3 hover:bg-white/30 transition w-full sm:w-auto sm:self-end"
           >
             <i class="fas fa-search me-2"></i> Search
           </button>
         </div>
       </div>
 
-      <div id="statsContainer" class="flex flex-row justify-between gap-4 mb-6 hidden">
-        <div class="bg-gradient-to-r from-teal-200 to-lime-200 p-6 rounded-xl w-72 text-center shadow">
-          <div class="text-3xl font-bold text-gray-700" id="anvayCount">0</div>
-          <div class="text-gray-600 mt-1">Anvay's Connections</div>
+      <div id="statsContainer" class="flex flex-col sm:flex-row justify-between gap-4 mb-6 hidden">
+        <div class="bg-gradient-to-r from-teal-200 to-lime-200 p-4 sm:p-6 rounded-xl w-full sm:w-72 text-center shadow">
+          <div class="text-2xl sm:text-3xl font-bold text-gray-700" id="anvayCount">0</div>
+          <div class="text-gray-600 mt-1 text-sm sm:text-base">Anvay's Connections</div>
         </div>
-        <div class="bg-gradient-to-r from-yellow-200 to-pink-200 p-6 rounded-xl w-72 text-center shadow">
-          <div class="text-3xl font-bold text-gray-700" id="anilCount">0</div>
-          <div class="text-gray-600 mt-1">Anil's Close Connections</div>
+        <div class="bg-gradient-to-r from-yellow-200 to-pink-200 p-4 sm:p-6 rounded-xl w-full sm:w-72 text-center shadow">
+          <div class="text-2xl sm:text-3xl font-bold text-gray-700" id="anilCount">0</div>
+          <div class="text-gray-600 mt-1 text-sm sm:text-base">Anil's Close Connections</div>
         </div>
-        <div class="bg-gradient-to-r from-sky-200 to-purple-200 p-6 rounded-xl w-72 text-center shadow">
-          <div class="text-3xl font-bold text-gray-700" id="bilwaCount">0</div>
-          <div class="text-gray-600 mt-1">Bilwa's Connections</div>
+        <div class="bg-gradient-to-r from-sky-200 to-purple-200 p-4 sm:p-6 rounded-xl w-full sm:w-72 text-center shadow">
+          <div class="text-2xl sm:text-3xl font-bold text-gray-700" id="bilwaCount">0</div>
+          <div class="text-gray-600 mt-1 text-sm sm:text-base">Bilwa's Connections</div>
         </div>
       </div>
 
-      <div id="resultsContainer" class="mt-8"></div>
+      <div id="resultsContainer" class="mt-6 sm:mt-8"></div>
     </div>
   </div>
 </body>
