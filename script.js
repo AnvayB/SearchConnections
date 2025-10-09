@@ -1,5 +1,8 @@
 // script.js
 
+// Password configuration
+const CORRECT_PASSWORD = 'connections'; // Change this to your desired password
+
 const csvFiles = {
     anvay: 'data/anvay-connections.csv',
     anil: 'data/anil-connections.csv',
@@ -11,6 +14,8 @@ const csvFiles = {
     anil: [],
     bilwa: []
   };
+
+  let isAuthenticated = false;
   
   async function loadAllCSVs() {
     for (let key in csvFiles) {
@@ -294,6 +299,25 @@ const csvFiles = {
     document.getElementById('companySuggestions').style.display = 'none';
     searchCompany(company, true); // exact, case-sensitive
   }
+
+  function checkPassword() {
+    const password = prompt('Please enter the password to access this application:');
+    
+    if (password === null) {
+      // User clicked cancel
+      alert('Password is required to access this application.');
+      checkPassword(); // Retry
+      return;
+    }
+    
+    if (password === CORRECT_PASSWORD) {
+      isAuthenticated = true;
+      loadAllCSVs();
+    } else {
+      alert('Incorrect password. Please try again.');
+      checkPassword(); // Retry
+    }
+  }
   
-  document.addEventListener('DOMContentLoaded', loadAllCSVs);
+  document.addEventListener('DOMContentLoaded', checkPassword);
   
