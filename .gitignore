@@ -1,2 +1,7 @@
 .DS_Store
 original_files/
+.venv/
+.playwright-linkedin-profile/
+data/anvay_connections_test.csv
+__pycache__/
+.env
