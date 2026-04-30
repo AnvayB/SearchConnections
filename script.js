@@ -4,9 +4,9 @@
 const CORRECT_PASSWORD = 'connections'; // Change this to your desired password
 
 const csvFiles = {
-    anvay: 'data/anvay-connections.csv',
-    anil: 'data/anil-connections.csv',
-    bilwa: 'data/bilwa-connections.csv'
+    anvay: 'data/anvay-connections.csv?v=20260429-1',
+    anil: 'data/anil-connections.csv?v=20260429-1',
+    bilwa: 'data/bilwa-connections.csv?v=20260429-1'
   };
   
   const dataStore = {
@@ -56,7 +56,7 @@ const csvFiles = {
       const results = companyNames.map(name => {
         if (exactCaseSensitive) {
           const anvay_matches = dataStore.anvay.filter(d => d.Company === name);
-          const anil_matches = dataStore.anil.filter(d => d.Company === name && ["1", "2", 1, 2].includes(String(d.Closeness).trim()));
+          const anil_matches = dataStore.anil.filter(d => d.Company === name);
           const bilwa_matches = dataStore.bilwa.filter(d => d.Company === name);
           return {
             company: name,
@@ -75,10 +75,7 @@ const csvFiles = {
             return lcWords.some(word => companyLc.includes(word));
           }
           const anvay_matches = dataStore.anvay.filter(d => matchesAnyWord(d.Company));
-          const anil_matches = dataStore.anil.filter(d => {
-            const closeness = String(d.Closeness).trim();
-            return matchesAnyWord(d.Company) && ["1", "2", 1, 2].includes(closeness);
-          });
+          const anil_matches = dataStore.anil.filter(d => matchesAnyWord(d.Company));
           const bilwa_matches = dataStore.bilwa.filter(d => matchesAnyWord(d.Company));
           return {
             company: name,
@@ -97,7 +94,7 @@ const csvFiles = {
     // Single company (existing logic)
     if (exactCaseSensitive) {
       const anvay_matches = dataStore.anvay.filter(d => d.Company === companyName);
-      const anil_matches = dataStore.anil.filter(d => d.Company === companyName && ["1", "2", 1, 2].includes(String(d.Closeness).trim()));
+      const anil_matches = dataStore.anil.filter(d => d.Company === companyName);
       const bilwa_matches = dataStore.bilwa.filter(d => d.Company === companyName);
       const result = {
         company: companyName,
@@ -118,10 +115,7 @@ const csvFiles = {
       return lcWords.some(word => companyLc.includes(word));
     }
     const anvay_matches = dataStore.anvay.filter(d => matchesAnyWord(d.Company));
-    const anil_matches = dataStore.anil.filter(d => {
-      const closeness = String(d.Closeness).trim();
-      return matchesAnyWord(d.Company) && ["1", "2", 1, 2].includes(closeness);
-    });
+    const anil_matches = dataStore.anil.filter(d => matchesAnyWord(d.Company));
     const bilwa_matches = dataStore.bilwa.filter(d => matchesAnyWord(d.Company));
     const result = {
       company: companyName,
@@ -150,7 +144,7 @@ const csvFiles = {
           html += createResultSection("Anvay's Connections", result.anvay_matches, false, highlightClass);
         }
         if (result.anil_matches.length > 0) {
-          html += createResultSection("Anil's Close Connections", result.anil_matches, true, highlightClass);
+          html += createResultSection("Anil's Connections", result.anil_matches, false, highlightClass);
         }
         if (result.bilwa_matches.length > 0) {
           html += createResultSection("Bilwa's Connections", result.bilwa_matches, false, highlightClass);
@@ -171,7 +165,7 @@ const csvFiles = {
       html += createResultSection("Anvay's Connections", data.anvay_matches, false);
     }
     if (data.anil_matches.length > 0) {
-      html += createResultSection("Anil's Close Connections", data.anil_matches, true);
+      html += createResultSection("Anil's Connections", data.anil_matches, false);
     }
     if (data.bilwa_matches.length > 0) {
       html += createResultSection("Bilwa's Connections", data.bilwa_matches, false);
@@ -237,7 +231,6 @@ const csvFiles = {
   
   function setupUI() {
     const searchInput = document.getElementById('companySearch');
-    const searchBtn = document.getElementById('searchBtn');
     const suggestionsBox = document.getElementById('companySuggestions');
     const clearBtn = document.getElementById('clearSearchBtn');
   
@@ -257,10 +250,6 @@ const csvFiles = {
         el.addEventListener('click', () => selectSuggestion(filtered[idx]));
       });
       suggestionsBox.style.display = filtered.length ? 'block' : 'none';
-    });
-  
-    searchBtn.addEventListener('click', () => {
-      searchCompany(searchInput.value);
     });
   
     searchInput.addEventListener('keypress', e => {
