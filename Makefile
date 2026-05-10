@@ -1,5 +1,8 @@
 start:
-	python3 -m http.server 8000
+	python3 -m http.server 8080
+
+test:
+	python3 test_edge_cases.py
 
 add:
 	git status

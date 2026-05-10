@@ -114,6 +114,16 @@
   font-size: 1em;
   display: inline-block;
 } 
+/* Disclaimer row for no-longer-employed connections */
+.disclaimer-row .disclaimer-cell {
+  background: #fff8e1;
+  color: #7c5a00;
+  font-style: italic;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.75rem;
+  border-top: none;
+}
+
 /* Company highlight colors for multi-company search */
 .company-highlight-0 {
   border: 2px solid #f87171; /* red-400 */

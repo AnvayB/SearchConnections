@@ -2,6 +2,8 @@
 original_files/
 .venv/
 .playwright-linkedin-profile/
-data/anvay_connections_test.csv
+data/
+old_data/
+updated_data/
 __pycache__/
 .env

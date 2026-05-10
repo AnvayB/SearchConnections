@@ -4,9 +4,9 @@
 const CORRECT_PASSWORD = 'connections'; // Change this to your desired password
 
 const csvFiles = {
-    anvay: 'data/anvay-connections.csv?v=20260429-1',
-    anil: 'data/anil-connections.csv?v=20260429-1',
-    bilwa: 'data/bilwa-connections.csv?v=20260429-1'
+    anvay: 'updated_data/anvay-connections_updated.csv',
+    anil: 'updated_data/anil-connections_updated.csv',
+    bilwa: 'updated_data/bilwa-connections_updated.csv'
   };
   
   const dataStore = {
@@ -213,6 +213,7 @@ const csvFiles = {
         } else {
           closenessClass = 'badge-closeness';
         }
+        const colSpan = includeCloseness ? 5 : 4;
         html += `<tr>
           <td><strong>${person['First Name']} ${person['Last Name']}</strong></td>
           <td>${person['Company']}</td>
@@ -220,6 +221,9 @@ const csvFiles = {
           ${includeCloseness ? `<td><span class="${closenessClass}">${person['Closeness']}</span></td>` : ''}
           <td><a href="${person['URL']}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fab fa-linkedin"></i> View</a></td>
         </tr>`;
+        if (person['Still_Employed'] === 'No') {
+          html += `<tr class="disclaimer-row"><td colspan="${colSpan}" class="disclaimer-cell">⚠️ This person no longer works here but they may still have connections.</td></tr>`;
+        }
       });
   
       html += '</tbody></table></div>';

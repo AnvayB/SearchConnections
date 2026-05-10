@@ -1,10 +1,32 @@
 #!/usr/bin/env python3
 """
-Verify current employment for LinkedIn connection rows.
+Verify and update LinkedIn employment information.
 
-Rule implemented:
-- If the top Experience date range does NOT contain "Present", set Still_Employed = "No".
-- Otherwise leave Still_Employed blank.
+New behavior:
+- Opens LinkedIn Experience page
+- Extracts MOST RECENT experience entry
+- Checks whether current role is still active ("Present")
+- Compares extracted company against CSV company
+- Updates:
+    - Company
+    - Position
+    - Start_Date
+- Adds:
+    - Still_Employed
+    - Employment_Changed
+
+Rules:
+- If no current role exists:
+    Still_Employed = "No"
+
+- If current role exists at SAME company:
+    Still_Employed = ""
+    Employment_Changed = ""
+
+- If current role exists at DIFFERENT company:
+    Still_Employed = ""
+    Employment_Changed = "Yes"
+    Update Company / Position / Start_Date
 """
 
 from __future__ import annotations
@@ -23,11 +45,39 @@ from playwright.sync_api import sync_playwright
 
 
 DATE_RANGE_RE = re.compile(
-    r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}\s*-\s*(?:Present|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4})\b",
+    r"\b"
+    r"(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+)?"  # optional month
+    r"\d{4}"
+    r"\s*[-\u2013]\s*"
+    r"(?:Present|(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+)?\d{4})"
+    r"\b",
     re.IGNORECASE,
 )
 
-# Optional fallback credentials (least preferred). Leave blank unless needed.
+EMPLOYMENT_TYPE_KEYWORDS = frozenset({
+    "full-time", "part-time", "contract", "freelance", "self-employed",
+    "internship", "temporary", "seasonal", "apprenticeship",
+    "on-site", "remote", "hybrid",
+})
+
+DURATION_ONLY_RE = re.compile(
+    r"^\d+\s+(yr|yrs|year|years|mo|mos|month|months)"
+    r"(\s+\d+\s+(mo|mos|month|months))?\s*$",
+    re.IGNORECASE,
+)
+
+# LinkedIn sometimes uses non-ASCII hyphens (e.g. U+2011 non-breaking hyphen)
+# in strings like "Full‑time". Normalise before keyword lookup.
+_UNICODE_DASH_RE = re.compile(r"[\u2010\u2011\u2012\u2013\u2014\u2212]")
+
+# Location lines (e.g. "Fresno, California, United States") should be skipped
+# just like employment-type or duration-only lines.
+_KNOWN_GEO_SUFFIXES = frozenset({
+    "united states", "canada", "united kingdom", "india", "australia",
+    "germany", "france", "singapore", "netherlands", "ireland",
+    "pakistan", "area",
+})
+
 HARDCODED_LINKEDIN_EMAIL = ""
 HARDCODED_LINKEDIN_PASSWORD = ""
 
@@ -36,25 +86,105 @@ def clean_lines(text: str) -> list[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
+def is_noise_line(line: str) -> bool:
+    # Normalise non-ASCII dashes (LinkedIn uses U+2011 non-breaking hyphen, etc.)
+    normalised = _UNICODE_DASH_RE.sub("-", line.strip()).lower()
+    # Also inspect only the segment before any · separator.
+    # This catches compound group-header lines like "Full-time · 4 yrs 10 mos"
+    # where just the primary part is an employment-type keyword.
+    primary = normalised.split("·")[0].strip()
+    if normalised in EMPLOYMENT_TYPE_KEYWORDS or primary in EMPLOYMENT_TYPE_KEYWORDS:
+        return True
+    if DURATION_ONLY_RE.match(normalised):
+        return True
+    # Location lines like "Fresno, California, United States"
+    if any(normalised.endswith(suffix) for suffix in _KNOWN_GEO_SUFFIXES):
+        return True
+    return False
+
+
 def profile_experience_url(profile_url: str) -> str:
     cleaned = profile_url.strip().split("?", 1)[0].rstrip("/")
     return f"{cleaned}/details/experience/"
 
 
-def extract_top_experience_date(page) -> str | None:
+def extract_top_experience(page) -> dict | None:
+    """
+    Attempts to extract:
+    - title
+    - company
+    - date range
+    - current employment status
+
+    Uses lightweight text heuristics.
+    """
+
     selectors = [
         "main",
         "body",
     ]
+
     for selector in selectors:
         try:
             text = page.locator(selector).first.inner_text(timeout=5000)
-            for line in clean_lines(text):
-                match = DATE_RANGE_RE.search(line)
-                if match:
-                    return match.group(0)
+            lines = clean_lines(text)
+
+            for i, line in enumerate(lines):
+                date_match = DATE_RANGE_RE.search(line)
+
+                if not date_match:
+                    continue
+
+                date_range = date_match.group(0)
+
+                # Walk backward from the date line, collecting the first two
+                # non-noise, non-date lines. Track whether any noise was skipped.
+                #
+                # LinkedIn renders two layouts:
+                #   Simple entry  → Title, Company, Date  (no noise)
+                #   Grouped entry → Company (header), [duration noise], Title,
+                #                   [employment-type noise], Date
+                #
+                # When no noise is skipped: non_noise[0]=company, [1]=title
+                # When noise was skipped:   non_noise[0]=title,   [1]=company
+                non_noise: list[str] = []
+                noise_skipped = False
+                j = i - 1
+                while j >= 0 and len(non_noise) < 2:
+                    candidate = lines[j].strip()
+                    if DATE_RANGE_RE.search(candidate):
+                        break
+                    if is_noise_line(candidate):
+                        noise_skipped = True
+                    else:
+                        non_noise.append(candidate)
+                    j -= 1
+
+                if len(non_noise) >= 2:
+                    if noise_skipped:
+                        title   = non_noise[0].split("·")[0].strip()
+                        company = non_noise[1].split("·")[0].strip()
+                    else:
+                        company = non_noise[0].split("·")[0].strip()
+                        title   = non_noise[1].split("·")[0].strip()
+                elif len(non_noise) == 1:
+                    company = non_noise[0].split("·")[0].strip()
+                    title   = ""
+                else:
+                    continue
+
+                return {
+                    "title": title,
+                    "company": company,
+                    "date_range": date_range.strip(),
+                    "is_current": "present" in date_range.lower(),
+                }
+
         except PlaywrightTimeoutError:
             continue
+        except Exception as exc:
+            print(f"extract_top_experience error: {exc}")
+
     return None
 
 
@@ -68,16 +198,21 @@ def load_env_file(path: Path) -> dict[str, str]:
         return {}
 
     values: dict[str, str] = {}
+
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
+
         if not line or line.startswith("#"):
             continue
+
         if line.startswith("export "):
             line = line[len("export ") :].strip()
+
         if "=" not in line:
             continue
 
         key, value = line.split("=", 1)
+
         key = key.strip()
         value = value.strip()
 
@@ -92,11 +227,13 @@ def load_env_file(path: Path) -> dict[str, str]:
 def first_visible_locator(page, selectors: list[str]):
     for selector in selectors:
         candidate = page.locator(selector).first
+
         try:
             if candidate.count() and candidate.is_visible():
                 return candidate
         except Exception:
             continue
+
     return None
 
 
@@ -107,7 +244,6 @@ def login_if_needed(page, email: str | None, password: str | None, allow_manual_
     try:
         page.wait_for_load_state("networkidle", timeout=8000)
     except Exception:
-        # Some pages never reach full idle due to trackers; continue with best effort.
         pass
 
     if email and password:
@@ -117,12 +253,14 @@ def login_if_needed(page, email: str | None, password: str | None, allow_manual_
             "input[type='email']",
             "input[autocomplete='username']",
         ]
+
         password_selectors = [
             "#password",
             "input[name='session_password']",
             "input[type='password']",
             "input[autocomplete='current-password']",
         ]
+
         sign_in_selectors = [
             "button[type='submit']",
             "button:has-text('Sign in')",
@@ -134,17 +272,19 @@ def login_if_needed(page, email: str | None, password: str | None, allow_manual_
         password_field = first_visible_locator(page, password_selectors)
 
         if email_field is None or password_field is None:
-            # LinkedIn sometimes lands on a variant page with a second "Sign in" action before fields appear.
             prelogin_click_selectors = [
                 "a:has-text('Sign in')",
                 "button:has-text('Sign in')",
                 "a:has-text('Log in')",
                 "button:has-text('Log in')",
             ]
+
             prelogin_btn = first_visible_locator(page, prelogin_click_selectors)
+
             if prelogin_btn is not None:
                 prelogin_btn.click()
                 page.wait_for_timeout(1200)
+
                 email_field = first_visible_locator(page, email_selectors)
                 password_field = first_visible_locator(page, password_selectors)
 
@@ -152,70 +292,89 @@ def login_if_needed(page, email: str | None, password: str | None, allow_manual_
             if allow_manual_login or sys.stdin.isatty():
                 print(
                     "Could not find LinkedIn login fields automatically. "
-                    "Please complete login manually in the browser, then press Enter."
+                    "Please complete login manually in browser and press Enter."
                 )
+
                 input()
+
                 page.wait_for_timeout(1000)
+
                 if is_linkedin_login_page(page):
                     raise RuntimeError("Still on login page after manual login.")
+
                 return
+
             raise RuntimeError(
-                f"Login page detected but could not find login fields. URL={page.url}"
+                f"Login page detected but fields could not be found. URL={page.url}"
             )
 
         email_field.fill(email)
         password_field.fill(password)
 
         clicked = False
+
         for selector in sign_in_selectors:
             btn = first_visible_locator(page, [selector])
+
             if btn is not None:
                 btn.click()
                 clicked = True
                 break
+
         if not clicked:
             password_field.press("Enter")
 
         page.wait_for_timeout(2500)
+
         if is_linkedin_login_page(page):
-            raise RuntimeError("LinkedIn login failed or requires additional verification.")
+            raise RuntimeError("LinkedIn login failed.")
+
         return
 
     if allow_manual_login:
-        print("Login required. Please complete LinkedIn login in the opened browser window, then press Enter.")
+        print("Login required. Complete login in browser and press Enter.")
         input()
+
         page.wait_for_timeout(800)
+
         if is_linkedin_login_page(page):
             raise RuntimeError("Still on login page after manual login.")
+
         return
 
     raise RuntimeError(
-        "LinkedIn authentication required. Provide credentials via .env/env vars, "
-        "or run with --allow-manual-login."
+        "LinkedIn authentication required. "
+        "Provide credentials or use --allow-manual-login."
     )
 
 
-def ensure_linkedin_authenticated(page, email: str | None, password: str | None, allow_manual_login: bool) -> None:
-    # Proactively hit LinkedIn login so credential-based auth runs before row processing.
-    page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded", timeout=30000)
+def ensure_linkedin_authenticated(
+    page,
+    email: str | None,
+    password: str | None,
+    allow_manual_login: bool,
+) -> None:
+    page.goto(
+        "https://www.linkedin.com/login",
+        wait_until="domcontentloaded",
+        timeout=30000,
+    )
+
     page.wait_for_timeout(1000)
 
     if is_linkedin_login_page(page):
         login_if_needed(page, email, password, allow_manual_login)
 
-    # Final sanity check: go to feed and ensure we are not bounced back to login/checkpoint.
-    page.goto("https://www.linkedin.com/feed/", wait_until="domcontentloaded", timeout=30000)
+    page.goto(
+        "https://www.linkedin.com/feed/",
+        wait_until="domcontentloaded",
+        timeout=30000,
+    )
+
     page.wait_for_timeout(1000)
+
     if is_linkedin_login_page(page):
-        raise RuntimeError("Could not authenticate LinkedIn session before processing rows.")
-
-
-def decide_still_employed(top_date_range: str | None) -> str:
-    if top_date_range is None:
-        return "No"
-    if "present" not in top_date_range.lower():
-        return "No"
-    return ""
+        raise RuntimeError("Could not authenticate LinkedIn session.")
 
 
 def process_csv(
@@ -230,16 +389,23 @@ def process_csv(
     delay_s: float,
     limit: int | None,
 ) -> None:
+
     with input_csv.open(newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
+
         if not rows:
-            raise ValueError("Input CSV has no data rows.")
+            raise ValueError("Input CSV has no rows.")
+
         fieldnames = list(rows[0].keys())
 
     if "Still_Employed" not in fieldnames:
         fieldnames.append("Still_Employed")
 
+    if "Employment_Changed" not in fieldnames:
+        fieldnames.append("Employment_Changed")
+
     checked = 0
+
     with sync_playwright() as pw:
         context = pw.chromium.launch_persistent_context(
             user_data_dir=str(profile_dir),
@@ -247,50 +413,143 @@ def process_csv(
             headless=headless,
             viewport={"width": 1360, "height": 900},
         )
+
         page = context.new_page()
-        ensure_linkedin_authenticated(page, linkedin_email, linkedin_password, allow_manual_login)
+
+        ensure_linkedin_authenticated(
+            page,
+            linkedin_email,
+            linkedin_password,
+            allow_manual_login,
+        )
 
         for idx, row in enumerate(rows, start=1):
+
             if limit is not None and checked >= limit:
                 break
 
             url = (row.get("URL") or "").strip()
-            full_name = f"{row.get('First Name', '').strip()} {row.get('Last Name', '').strip()}".strip()
+
+            full_name = (
+                f"{row.get('First Name', '').strip()} "
+                f"{row.get('Last Name', '').strip()}"
+            ).strip()
 
             if not url.startswith("http"):
                 row["Still_Employed"] = "No"
+
                 print(f"[{idx}] {full_name}: missing profile URL -> No")
+
                 checked += 1
                 continue
 
-            print(f"[{idx}] Checking {full_name} ({url})")
+            print(f"[{idx}] Checking {full_name}")
+
             try:
                 exp_url = profile_experience_url(url)
-                page.goto(exp_url, wait_until="domcontentloaded", timeout=30000)
-                page.wait_for_timeout(1200)
 
-                login_if_needed(page, linkedin_email, linkedin_password, allow_manual_login)
-                if page.url != exp_url:
-                    page.goto(exp_url, wait_until="domcontentloaded", timeout=30000)
-                    page.wait_for_timeout(800)
-
-                top_date = extract_top_experience_date(page)
-                result = decide_still_employed(top_date)
-                row["Still_Employed"] = result
-                print(
-                    f"    top_date={top_date!r}, Still_Employed={result!r}"
+                page.goto(
+                    exp_url,
+                    wait_until="domcontentloaded",
+                    timeout=30000,
                 )
+
+                page.wait_for_timeout(1500)
+
+                login_if_needed(
+                    page,
+                    linkedin_email,
+                    linkedin_password,
+                    allow_manual_login,
+                )
+
+                if page.url != exp_url:
+                    page.goto(
+                        exp_url,
+                        wait_until="domcontentloaded",
+                        timeout=30000,
+                    )
+
+                    page.wait_for_timeout(1000)
+
+                experience = extract_top_experience(page)
+
+                if not experience:
+                    row["Still_Employed"] = "No"
+
+                    print("    Could not extract experience.")
+
+                else:
+                    current_company_raw = experience["company"]
+                    current_company = (
+                        current_company_raw
+                        .split("·")[0]
+                        .strip()
+                    )
+                    current_title = experience["title"]
+                    current_dates = experience["date_range"]
+
+                    csv_company = (
+                        (row.get("Company") or "")
+                        .split("·")[0]
+                        .strip()
+                    )
+
+                    print(f"    Current Company: {current_company}")
+                    print(f"    Current Title: {current_title}")
+                    print(f"    Current Dates: {current_dates}")
+
+                    if not experience["is_current"]:
+                        row["Still_Employed"] = "No"
+
+                        print("    No current employment found.")
+
+                    else:
+                        row["Still_Employed"] = ""
+
+                        if (
+                            csv_company.lower()
+                            != current_company.lower()
+                        ):
+                            print("    Employment changed detected.")
+
+                            print(f"       OLD: {csv_company}")
+                            print(f"       NEW: {current_company}")
+
+                            row["Company"] = current_company
+
+                            if "Position" in row:
+                                row["Position"] = current_title
+
+                            if "Title" in row:
+                                row["Title"] = current_title
+
+                            if "Start_Date" in row:
+                                row["Start_Date"] = (
+                                    current_dates.split("-")[0].strip()
+                                )
+
+                            row["Employment_Changed"] = "Yes"
+
+                        else:
+                            row["Employment_Changed"] = ""
+
                 checked += 1
+
                 time.sleep(delay_s)
+
             except Exception as exc:
                 row["Still_Employed"] = "No"
-                print(f"    error={exc} -> No")
+
+                print(f"    Error: {exc}")
+
                 checked += 1
 
         context.close()
 
     with output_csv.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
+
         writer.writeheader()
         writer.writerows(rows)
 
@@ -298,71 +557,91 @@ def process_csv(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Verify Still_Employed from LinkedIn Experience section.")
+    parser = argparse.ArgumentParser(
+        description="Verify and update LinkedIn employment data."
+    )
+
     parser.add_argument(
         "--input",
         type=Path,
-        default=Path("data/anvay_connections.csv"),
-        help="Input CSV path (default: data/anvay_connections.csv)",
+        default=Path("data/bilwa-connections.csv"),
+        help="Input CSV path",
     )
+
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("data/anvay_connections.csv"),
-        help="Output CSV path (default: overwrite input)",
+        default=Path("updated_data/bilwa-connections_updated.csv"),
+        help="Output CSV path",
     )
+
     parser.add_argument(
         "--profile-dir",
         type=Path,
         default=Path(".playwright-linkedin-profile"),
-        help="Browser profile directory for persistent LinkedIn login session",
+        help="Persistent Playwright profile directory",
     )
+
     parser.add_argument(
         "--browser-channel",
         default="chrome",
-        help="Playwright browser channel (default: chrome). Use empty string to use bundled Chromium.",
+        help="Browser channel (default: chrome)",
     )
+
     parser.add_argument(
         "--env-file",
         type=Path,
         default=Path(".env"),
-        help="Path to .env file for credentials (default: .env).",
+        help=".env file path",
     )
+
     parser.add_argument(
         "--linkedin-email",
         default=None,
-        help="LinkedIn email. Prefer using env var LINKEDIN_EMAIL.",
+        help="LinkedIn email",
     )
+
     parser.add_argument(
         "--linkedin-password",
         default=None,
-        help="LinkedIn password. Prefer using env var LINKEDIN_PASSWORD.",
+        help="LinkedIn password",
     )
+
     parser.add_argument(
         "--allow-manual-login",
         action="store_true",
-        help="Allow pausing for manual login in browser if auth is required.",
+        help="Allow manual login in browser",
     )
-    parser.add_argument("--headless", action="store_true", help="Run browser in headless mode")
+
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Run browser headlessly",
+    )
+
     parser.add_argument(
         "--delay",
         type=float,
         default=2.5,
-        help="Delay (seconds) between profile checks (default: 2.5)",
+        help="Delay between profiles",
     )
+
     parser.add_argument(
         "--limit",
         type=int,
         default=None,
-        help="Only process the first N rows (useful for testing)",
+        help="Only process first N rows",
     )
+
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+
     try:
         env_values = load_env_file(args.env_file)
+
         linkedin_email = (
             args.linkedin_email
             or os.getenv("LINKEDIN_EMAIL")
@@ -370,6 +649,7 @@ def main() -> int:
             or HARDCODED_LINKEDIN_EMAIL
             or None
         )
+
         linkedin_password = (
             args.linkedin_password
             or os.getenv("LINKEDIN_PASSWORD")
@@ -377,8 +657,10 @@ def main() -> int:
             or HARDCODED_LINKEDIN_PASSWORD
             or None
         )
+
         if linkedin_email and not linkedin_password:
             linkedin_password = getpass.getpass("LinkedIn password: ")
+
         if linkedin_password and not linkedin_email:
             linkedin_email = input("LinkedIn email: ").strip()
 
@@ -394,10 +676,13 @@ def main() -> int:
             delay_s=args.delay,
             limit=args.limit,
         )
+
         return 0
+
     except KeyboardInterrupt:
         print("\nStopped by user.")
         return 130
+
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
