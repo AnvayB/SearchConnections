@@ -4,6 +4,5 @@ original_files/
 .playwright-linkedin-profile/
 data/
 old_data/
-updated_data/
 __pycache__/
 .env
