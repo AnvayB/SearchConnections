@@ -4,6 +4,15 @@ start:
 test:
 	python3 test_edge_cases.py
 
+scan-jobs:
+	.venv/bin/python scan_company_jobs.py --force
+
+scan-jobs-test:
+	.venv/bin/python scan_company_jobs.py --limit 3 --force --no-headless
+
+scan-jobs-batch:
+	.venv/bin/python scan_company_jobs.py --all-companies --resume --limit 25
+
 add:
 	git status
 	git add .

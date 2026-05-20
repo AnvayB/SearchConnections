@@ -16,7 +16,8 @@ Additions:
 - **Modern UI**: Clean, professional interface with gradients and animations
 - **Fast Search**: Optimized search with autocomplete
 - **Data Statistics**: Shows count of results from each data source
-- **Direct Links**: One-click access to LinkedIn profiles 
+- **Direct Links**: One-click access to LinkedIn profiles
+- **Company Jobs Links**: Each company search includes a button to that company's LinkedIn jobs page
 
 ## Employment Verification Script
 
@@ -77,3 +78,51 @@ Or use manual login fallback in the opened browser window:
 ```
 
 Optional hardcoded fallback is available at the top of `verify_linkedin_employment.py` (`HARDCODED_LINKEDIN_EMAIL` and `HARDCODED_LINKEDIN_PASSWORD`), but `.env` is preferred.
+
+## Recommended Job Scanner
+
+Use `scan_company_jobs.py` to scrape LinkedIn's **"Recommended for you"** carousel on each company's `/company/{slug}/jobs/` page, classify titles into role buckets, and write results to `updated_data/top20_job_counts.csv` for the **Job Openings** tab.
+
+### Role buckets
+
+- **SWE** — software engineer, developer, SDE, backend/frontend, platform
+- **Data Analyst** — data analyst, BI analyst, analytics/reporting analyst
+- **Data Engineer** — data engineer, analytics engineer, ETL/pipeline
+- **Data Scientist / ML** — data scientist, ML engineer, AI engineer, applied scientist
+
+Each company row reflects up to **6 personalized recommendations** from LinkedIn (not total company-wide openings).
+
+### Default company list (17)
+
+Apple, Arteris, Google, Oracle, AWS, Honeywell, Amazon, MacDermid Alpha, Meta, Microsoft, Applied Materials, Entegris, KLA, Mariana Minerals, NVIDIA, PayPal, Sila Nanotechnologies Inc.
+
+### Run
+
+Test with 3 companies (visible browser for debugging):
+
+```bash
+.venv/bin/python scan_company_jobs.py --limit 3 --no-headless
+```
+
+Full top-17 re-scan (headless, runs in background):
+
+```bash
+.venv/bin/python scan_company_jobs.py --force
+```
+
+Batch through all connection companies (25 unscanned companies per run):
+
+```bash
+.venv/bin/python scan_company_jobs.py --all-companies --resume --limit 25
+```
+
+Run that batch command repeatedly until everything is scanned.
+
+Useful flags:
+
+- `--headless` / `--no-headless` — background vs visible browser (default: headless)
+- `--delay 5` — seconds between companies (default: 5)
+- `--resume` — skip companies already in the output CSV
+- `--force` — rescan even if a company is already in the CSV
+- `--limit 25` — scan at most 25 companies from the remaining queue (works correctly with `--resume`)
+- `--all-companies` — scan from all connection CSVs instead of the top-17 list
