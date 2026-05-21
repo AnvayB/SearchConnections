@@ -13,6 +13,12 @@ scan-jobs-test:
 scan-jobs-batch:
 	.venv/bin/python scan_company_jobs.py --all-companies --resume --limit 25
 
+verify-links-batch:
+	.venv/bin/python verify_company_linkedin_links.py --all-companies --resume --limit 25
+
+verify-links-retry:
+	.venv/bin/python verify_company_linkedin_links.py --all-companies --retry-empty --limit 25
+
 add:
 	git status
 	git add .

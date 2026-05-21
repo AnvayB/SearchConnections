@@ -220,6 +220,23 @@
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
 }
 
+.companies-table-container {
+  margin-top: 0.5rem;
+}
+
+.companies-table-card {
+  border: 2px solid #6366f1;
+}
+
+.companies-table th,
+.companies-table td {
+  vertical-align: middle;
+}
+
+.companies-table td:last-child {
+  white-space: nowrap;
+}
+
 .jobs-table-card {
   border: 2px solid #6366f1;
 }

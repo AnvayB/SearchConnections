@@ -9,7 +9,7 @@ const csvFiles = {
   bilwa: 'updated_data/bilwa-connections_updated.csv'
 };
 
-const jobCountsFile = 'updated_data/top20_job_counts.csv?v=20260520-4';
+const linkedInJobsFile = 'linkedin_jobs_final.csv?v=20260521-4';
 
 const dataStore = {
   anvay: [],
@@ -17,9 +17,8 @@ const dataStore = {
   bilwa: []
 };
 
-let jobCountsData = [];
-let jobsSortKey = 'Connection_Count';
-let jobsSortAsc = false;
+let linkedInUrlByCompany = {};
+let linkedInUrlByNormalized = {};
 let isAuthenticated = false;
 
 // Manual overrides when LinkedIn slugs differ from the generated slug.
@@ -63,16 +62,69 @@ const COMPANY_SLUG_OVERRIDES = {
   'MacDermid Alpha Electronics Solutions': 'macdermid-alpha-electronics-solutions',
   'Mariana Minerals': 'mariana-minerals',
   'Arteris': 'arteris',
+  'Albertsons Companies': 'albertsons',
+  'Aya Healthcare': 'aya-healthcare',
+  'Benjamin Moore & Co.': 'benjamin-moore-co',
+  'Berkeley Lab': 'lawrence-berkeley-national-laboratory',
+  'Axtria - Ingenious Insights': 'axtria',
+  'Athos Therapeutics Inc': 'athos-therapeutics',
+  'Actemium Avanceon': 'actemium-avanceon',
+  'Amberoon Inc.': 'amberoon-inc',
+  'Accelon Inc.': 'accelon-inc',
+  'AdventHealth Central Florida': 'adventhealth',
+  'BD': 'bd',
+  'AC Wellness Medical Group @ Apple': 'ac-wellness',
+  'Atreya Innovations': 'atreya-innovations',
+  'Ayurvedamrut': 'ayurvedamrut',
 };
 
 async function loadAllCSVs() {
   for (let key in csvFiles) {
     await loadCSV(csvFiles[key], key);
   }
-  await loadJobCountsCSV();
+  await loadLinkedInJobsCSV();
   setupUI();
   setupTabs();
-  renderCompanyJobsView();
+  renderCompaniesView();
+}
+
+function normalizeCompanyKey(name) {
+  return name.split('·')[0].trim().replace(/[\uF8FF\uE000-\uF8FF\s]+$/g, '').trim().toLowerCase();
+}
+
+function loadLinkedInJobsCSV() {
+  return new Promise((resolve) => {
+    Papa.parse(linkedInJobsFile, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: results => {
+        linkedInUrlByCompany = {};
+        linkedInUrlByNormalized = {};
+        (results.data || []).forEach(row => {
+          const company = (row.Company || '').trim();
+          const url = (row.Job_page || row.LinkedIn_URL || '').trim();
+          if (company && url) {
+            linkedInUrlByCompany[company] = url;
+            linkedInUrlByNormalized[normalizeCompanyKey(company)] = url;
+          }
+        });
+        resolve();
+      },
+      error: () => {
+        linkedInUrlByCompany = {};
+        linkedInUrlByNormalized = {};
+        resolve();
+      }
+    });
+  });
+}
+
+function getStoredJobsUrl(company) {
+  if (linkedInUrlByCompany[company]) {
+    return linkedInUrlByCompany[company];
+  }
+  return linkedInUrlByNormalized[normalizeCompanyKey(company)] || '';
 }
 
 function loadCSV(path, label) {
@@ -89,22 +141,24 @@ function loadCSV(path, label) {
   });
 }
 
-function loadJobCountsCSV() {
-  return new Promise((resolve) => {
-    Papa.parse(jobCountsFile, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: results => {
-        jobCountsData = (results.data || []).filter(row => (row.Company || '').trim());
-        resolve();
-      },
-      error: () => {
-        jobCountsData = [];
-        resolve();
-      }
+function getCompanyConnectionCount(companyName) {
+  const key = companyName.split('·')[0].trim();
+  const seen = new Set();
+
+  Object.values(dataStore).forEach(rows => {
+    rows.forEach(row => {
+      const company = (row.Company || '').split('·')[0].trim();
+      if (company !== key) return;
+
+      const url = (row.URL || '').trim().toLowerCase().replace(/\/$/, '');
+      const personKey = url.startsWith('http')
+        ? url
+        : `name:${(row['First Name'] || '').trim().toLowerCase()}|${(row['Last Name'] || '').trim().toLowerCase()}`;
+      seen.add(personKey);
     });
   });
+
+  return seen.size;
 }
 
 function getAllCompanies() {
@@ -118,7 +172,7 @@ function getAllCompanies() {
 }
 
 function companyToLinkedInSlug(company) {
-  const normalized = company.split('·')[0].trim();
+  const normalized = company.split('·')[0].trim().replace(/[\uF8FF\uE000-\uF8FF\s]+$/g, '').trim();
   if (COMPANY_SLUG_OVERRIDES[normalized]) {
     return COMPANY_SLUG_OVERRIDES[normalized];
   }
@@ -132,6 +186,11 @@ function companyToLinkedInSlug(company) {
 }
 
 function linkedInJobsUrl(company) {
+  const stored = getStoredJobsUrl(company);
+  if (stored) {
+    return stored;
+  }
+
   const slug = companyToLinkedInSlug(company);
   return `https://www.linkedin.com/company/${encodeURIComponent(slug)}/jobs/`;
 }
@@ -414,239 +473,74 @@ function setupTabs() {
     tabConnections.setAttribute('aria-selected', 'false');
     jobsPanel.classList.remove('hidden');
     connectionsPanel.classList.add('hidden');
-    renderCompanyJobsView();
+    renderCompaniesView();
   });
 
-  document.getElementById('jobsTableFilter')?.addEventListener('input', renderCompanyJobsView);
-  document.getElementById('jobsSortSelect')?.addEventListener('change', e => {
-    jobsSortKey = e.target.value;
-    jobsSortAsc = jobsSortKey === 'Company';
-    renderCompanyJobsView();
-  });
+  document.getElementById('jobsTableFilter')?.addEventListener('input', renderCompaniesView);
 }
 
-const ROLE_BUCKET_PATTERNS = [
-  {
-    key: 'Data_Scientist_ML',
-    label: 'DS / ML',
-    className: 'role-badge-dsml',
-    patterns: [/data scientist/i, /machine learning engineer/i, /\bml engineer\b/i, /\bai engineer\b/i, /research scientist/i, /applied scientist/i, /deep learning/i]
-  },
-  {
-    key: 'Data_Engineer',
-    label: 'Data Engineer',
-    className: 'role-badge-de',
-    patterns: [/data engineer/i, /analytics engineer/i, /\betl engineer\b/i, /data platform/i, /pipeline engineer/i]
-  },
-  {
-    key: 'Data_Analyst',
-    label: 'Data Analyst',
-    className: 'role-badge-da',
-    patterns: [/data analyst/i, /business intelligence/i, /\bbi analyst\b/i, /analytics analyst/i, /reporting analyst/i]
-  },
-  {
-    key: 'SWE',
-    label: 'SWE',
-    className: 'role-badge-swe',
-    patterns: [/software engineer/i, /software developer/i, /\bsde\b/i, /\bswe\b/i, /backend engineer/i, /frontend engineer/i, /full.?stack/i, /platform engineer/i, /member of technical staff/i, /\bmtse\b/i, /firmware engineer/i]
-  }
-];
-
-const SENIOR_TITLE_PATTERNS = [
-  /\bsenior\b/i, /\bsr\.?\b/i, /\bstaff\b/i, /\bprincipal\b/i, /\bdirector\b/i,
-  /\bvice president\b/i, /\bvp\b/i, /\bhead of\b/i, /\bdistinguished\b/i,
-  /\bfellow\b/i, /\barchitect\b/i, /\bmanager\b/i, /\btech lead\b/i,
-  /\bteam lead\b/i, /\bleading\b/i
-];
-
-function isSeniorTitle(title) {
-  return SENIOR_TITLE_PATTERNS.some(p => p.test(title));
-}
-
-function classifyJobTitle(title) {
-  for (const bucket of ROLE_BUCKET_PATTERNS) {
-    if (bucket.patterns.some(p => p.test(title))) {
-      return bucket;
-    }
-  }
-  return null;
-}
-
-function parseJobTitles(raw) {
-  if (!raw) return [];
-  return raw
-    .split('|')
-    .map(t => t.trim())
-    .filter(t => t && t.toLowerCase() !== 'posted' && !/has \d+ posted jobs/i.test(t))
-    .filter(t => !isSeniorTitle(t))
-    .filter(t => !/^[A-Z][a-z]+(\s[A-Z][a-z]+){1,2}$/.test(t) || classifyJobTitle(t))
-    .filter((t, i, arr) => arr.indexOf(t) === i);
-}
-
-function getDedupedConnectionCount(companyName) {
-  const key = companyName.trim();
-  const seen = new Set();
-
-  Object.values(dataStore).forEach(rows => {
-    rows.forEach(row => {
-      const company = (row.Company || '').split('·')[0].trim();
-      if (company !== key) return;
-      const url = (row.URL || '').trim().toLowerCase().replace(/\/$/, '');
-      const personKey = url.startsWith('http')
-        ? url
-        : `name:${(row['First Name'] || '').trim().toLowerCase()}|${(row['Last Name'] || '').trim().toLowerCase()}`;
-      seen.add(personKey);
-    });
-  });
-
-  return seen.size;
-}
-
-function roleSummaryBadges(row) {
-  const titles = parseJobTitles(row.Recommended_Titles);
-  const counts = { SWE: 0, Data_Analyst: 0, Data_Engineer: 0, Data_Scientist_ML: 0 };
-
-  titles.forEach(title => {
-    const bucket = classifyJobTitle(title);
-    if (bucket) counts[bucket.key] += 1;
-  });
-
-  const fields = [
-    ['SWE', 'role-badge-swe'],
-    ['Data_Analyst', 'role-badge-da'],
-    ['Data_Engineer', 'role-badge-de'],
-    ['Data_Scientist_ML', 'role-badge-dsml']
-  ];
-
-  return fields
-    .map(([field, cls]) => {
-      const n = counts[field];
-      if (n <= 0) return '';
-      const label = field === 'Data_Scientist_ML' ? 'DS / ML' : field.replace('_', ' ');
-      return `<span class="role-badge ${cls}">${label}: ${n}</span>`;
-    })
-    .filter(Boolean)
-    .join('');
-}
-
-function parseCount(value) {
-  if (value === undefined || value === null || value === '') return -1;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : -1;
-}
-
-function formatCount(value) {
-  const n = parseCount(value);
-  return n < 0 ? '—' : n.toLocaleString();
-}
-
-function getFilteredJobRows() {
+function getFilteredCompanyRows() {
   const filter = (document.getElementById('jobsTableFilter')?.value || '').trim().toLowerCase();
-  let rows = jobCountsData.map(row => ({
-    ...row,
-    _connectionCount: getDedupedConnectionCount(row.Company || '') || parseCount(row.Connection_Count)
-  }));
+  let companies = getAllCompanies();
 
   if (filter) {
-    rows = rows.filter(row => (row.Company || '').toLowerCase().includes(filter));
+    companies = companies.filter(company => company.toLowerCase().includes(filter));
   }
 
-  rows.sort((a, b) => {
-    if (jobsSortKey === 'Company') {
-      const av = (a.Company || '').toLowerCase();
-      const bv = (b.Company || '').toLowerCase();
-      if (av === bv) return 0;
-      return jobsSortAsc ? (av < bv ? -1 : 1) : (av > bv ? -1 : 1);
-    }
-
-    if (jobsSortKey === 'Connection_Count') {
-      const av = a._connectionCount;
-      const bv = b._connectionCount;
-      if (av === bv) return (a.Company || '').localeCompare(b.Company || '');
-      return jobsSortAsc ? av - bv : bv - av;
-    }
-
-    const av = parseCount(a[jobsSortKey]);
-    const bv = parseCount(b[jobsSortKey]);
-    if (av === bv) {
-      return (a.Company || '').localeCompare(b.Company || '');
-    }
-    return jobsSortAsc ? av - bv : bv - av;
+  companies.sort((a, b) => {
+    const countDiff = getCompanyConnectionCount(b) - getCompanyConnectionCount(a);
+    if (countDiff !== 0) return countDiff;
+    return a.localeCompare(b);
   });
 
-  return rows;
+  return companies;
 }
 
-function renderCompanyJobsView() {
+function renderCompaniesView() {
   const container = document.getElementById('jobsTableContainer');
   const meta = document.getElementById('jobsMeta');
   if (!container || !meta) return;
 
-  const rows = getFilteredJobRows();
+  const allCompanies = getAllCompanies();
+  const companies = getFilteredCompanyRows();
+  const verifiedCount = allCompanies.filter(company => getStoredJobsUrl(company)).length;
 
-  if (!jobCountsData.length) {
-    meta.textContent = 'No job scan data yet.';
-    container.innerHTML = `
-      <div class="result-card">
-        <p class="text-muted mb-2">Run the scanner to populate this view:</p>
-        <p class="mb-0"><code>.venv/bin/python scan_company_jobs.py --limit 3</code></p>
-        <p class="text-muted mt-2 mb-0">Full top-17 run: <code>.venv/bin/python scan_company_jobs.py</code></p>
-      </div>`;
-    return;
-  }
+  meta.textContent = `Showing ${companies.length} of ${allCompanies.length} companies · Links verified for ${verifiedCount} companies`;
 
-  const latestScan = jobCountsData.map(r => r.Last_Scanned).filter(Boolean).sort().pop();
-  meta.textContent = `Showing ${rows.length} of ${jobCountsData.length} companies${latestScan ? ` · Last scan: ${latestScan}` : ''}`;
-
-  if (!rows.length) {
+  if (!companies.length) {
     container.innerHTML = '<div class="result-card"><p class="text-muted mb-0">No companies match your filter.</p></div>';
     return;
   }
 
-  let html = '';
-  rows.forEach(row => {
-    const company = row.Company || '';
-    const connections = getDedupedConnectionCount(company) || parseCount(row.Connection_Count) || 0;
-    const titles = parseJobTitles(row.Recommended_Titles);
-    const badges = roleSummaryBadges(row);
+  let html = `
+    <div class="result-card companies-table-card">
+      <div class="table-container">
+        <div class="table-responsive">
+          <table class="table table-hover companies-table">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Jobs</th>
+              </tr>
+            </thead>
+            <tbody>`;
 
-    let jobsHtml = '';
-    if (!titles.length) {
-      jobsHtml = `<p class="company-jobs-empty">${row.Scan_Notes || 'No recommended jobs found yet.'}</p>`;
-    } else {
-      jobsHtml = `<ul class="company-jobs-items">${titles.map(title => {
-        const bucket = classifyJobTitle(title);
-        const badge = bucket
-          ? `<span class="role-badge ${bucket.className}">${bucket.label}</span>`
-          : `<span class="role-badge role-badge-other">Other</span>`;
-        return `<li class="company-job-item">${badge}<span class="company-job-title">${title}</span></li>`;
-      }).join('')}</ul>`;
-    }
-
+  companies.forEach(company => {
     html += `
-      <div class="company-jobs-card result-card">
-        <div class="company-jobs-header">
-          <div>
-            <h3 class="company-jobs-name">${company}</h3>
-            <div class="company-jobs-meta">
-              <span class="connection-pill"><i class="fas fa-user-friends"></i> ${connections} connection${connections === 1 ? '' : 's'}</span>
-              ${badges ? `<span class="company-jobs-badges">${badges}</span>` : ''}
-            </div>
-          </div>
-          ${createJobsLinkHtml(company)}
-        </div>
-        <div class="company-jobs-body">
-          <div class="company-jobs-section-title">Recommended jobs for you</div>
-          ${jobsHtml}
-        </div>
-      </div>`;
+              <tr>
+                <td><strong>${company}</strong></td>
+                <td>${createJobsLinkHtml(company)}</td>
+              </tr>`;
   });
 
-  container.innerHTML = html;
-}
+  html += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
 
-function renderJobsTable() {
-  renderCompanyJobsView();
+  container.innerHTML = html;
 }
 
 function checkPassword() {

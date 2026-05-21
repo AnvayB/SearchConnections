@@ -18,6 +18,68 @@ Additions:
 - **Data Statistics**: Shows count of results from each data source
 - **Direct Links**: One-click access to LinkedIn profiles
 - **Company Jobs Links**: Each company search includes a button to that company's LinkedIn jobs page
+- **Companies Tab**: Browse all connection companies with a LinkedIn jobs page link for each
+
+## Companies Tab
+
+The **Companies** tab lists every unique company from the three connection CSVs (~277 companies), sorted by connection count (most to least). Each row has the company name and a **View Jobs on LinkedIn** button that opens that company's LinkedIn jobs page.
+
+Filter by company name using the search box at the top of the tab.
+
+Jobs links use verified URLs from `updated_data/company_linkedin_urls.csv` when available. Run the link verifier below to populate that file; unverified companies fall back to auto-generated LinkedIn slugs.
+
+## Verify LinkedIn Links
+
+Use `verify_company_linkedin_links.py` to resolve canonical LinkedIn company URLs from your **connection profile experience pages** (no Google search). For each unique company, the script visits a connection's `/details/experience/` page, finds an experience entry matching that company, and saves the `linkedin.com/company/...` href to `updated_data/company_linkedin_urls.csv`.
+
+If the first connection's current job doesn't match the CSV company, it tries other connections at the same company. Companies with no company page link (e.g. **Freelance**, **5G Stealth**) get an empty URL and use the slug fallback in the UI.
+
+**Requires LinkedIn login** — use `.env` credentials or `--allow-manual-login` (same setup as employment verification).
+
+### Run
+
+Test with 5 companies (visible browser for debugging):
+
+```bash
+.venv/bin/python verify_company_linkedin_links.py --all-companies --resume --limit 5 --no-headless
+```
+
+Batch through all connection companies (25 companies per run):
+
+```bash
+.venv/bin/python verify_company_linkedin_links.py --all-companies --resume --limit 25
+```
+
+Or via Makefile:
+
+```bash
+make verify-links-batch
+```
+
+Retry only companies with an empty LinkedIn URL:
+
+```bash
+make verify-links-retry
+```
+
+Re-verify everything from scratch (e.g. after failed Google runs):
+
+```bash
+.venv/bin/python verify_company_linkedin_links.py --all-companies --force --limit 25
+```
+
+Run batch commands repeatedly until everything is verified (~11 runs for ~277 companies at 25 per batch). One profile visit per company (~5s delay ≈ 25 min full run).
+
+Useful flags:
+
+- `--headless` / `--no-headless` — background vs visible browser (default: headless)
+- `--delay 5` — seconds between companies (default: 5)
+- `--resume` — skip companies that already have a non-empty LinkedIn_URL
+- `--retry-empty` — only verify companies already in the CSV with an empty LinkedIn_URL
+- `--force` — re-verify all companies
+- `--limit 25` — verify at most 25 companies from the remaining queue
+- `--all-companies` — verify from all connection CSVs instead of the top-17 list
+- `--allow-manual-login` — log in manually in the browser if needed
 
 ## Employment Verification Script
 
@@ -81,7 +143,7 @@ Optional hardcoded fallback is available at the top of `verify_linkedin_employme
 
 ## Recommended Job Scanner
 
-Use `scan_company_jobs.py` to scrape LinkedIn's **"Recommended for you"** carousel on each company's `/company/{slug}/jobs/` page, classify titles into role buckets, and write results to `updated_data/top20_job_counts.csv` for the **Job Openings** tab.
+Use `scan_company_jobs.py` to scrape LinkedIn's **"Recommended for you"** carousel on each company's `/company/{slug}/jobs/` page, classify titles into role buckets, and write results to `updated_data/top20_job_counts.csv`.
 
 ### Role buckets
 

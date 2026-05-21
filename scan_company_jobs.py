@@ -95,6 +95,20 @@ COMPANY_SLUG_OVERRIDES: dict[str, str] = {
     "MacDermid Alpha Electronics Solutions": "macdermid-alpha-electronics-solutions",
     "Mariana Minerals": "mariana-minerals",
     "Arteris": "arteris",
+    "Albertsons Companies": "albertsons",
+    "Aya Healthcare": "aya-healthcare",
+    "Benjamin Moore & Co.": "benjamin-moore-co",
+    "Berkeley Lab": "lawrence-berkeley-national-laboratory",
+    "Axtria - Ingenious Insights": "axtria",
+    "Athos Therapeutics Inc": "athos-therapeutics",
+    "Actemium Avanceon": "actemium-avanceon",
+    "Amberoon Inc.": "amberoon-inc",
+    "Accelon Inc.": "accelon-inc",
+    "AdventHealth Central Florida": "adventhealth",
+    "BD": "bd",
+    "AC Wellness Medical Group @ Apple": "ac-wellness",
+    "Atreya Innovations": "atreya-innovations",
+    "Ayurvedamrut": "ayurvedamrut",
 }
 
 OUTPUT_FIELDS = [
@@ -228,7 +242,9 @@ def utc_now_iso() -> str:
 
 
 def normalize_company(name: str) -> str:
-    return name.split("·")[0].strip()
+    normalized = name.split("·")[0].strip()
+    normalized = re.sub(r"[\uF8FF\uE000-\uF8FF\s]+$", "", normalized).strip()
+    return normalized
 
 
 def company_to_slug(company: str) -> str:
