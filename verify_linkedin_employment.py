@@ -44,63 +44,24 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 
-DATE_RANGE_RE = re.compile(
-    r"\b"
-    r"(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+)?"  # optional month
-    r"\d{4}"
-    r"\s*[-\u2013]\s*"
-    r"(?:Present|(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+)?\d{4})"
-    r"\b",
-    re.IGNORECASE,
+# Parsing/validation lives in employment_parse.py (no Playwright dependency, so it
+# can be unit tested offline). Names are re-exported here because
+# scan_company_jobs.py and verify_company_linkedin_links.py use them via `vle.`.
+from employment_parse import (  # noqa: F401
+    DATE_RANGE_RE,
+    DURATION_ONLY_RE,
+    EMPLOYMENT_TYPE_KEYWORDS,
+    EXTRA_COLUMNS,
+    apply_experience_to_row,
+    clean_lines,
+    is_noise_line,
+    looks_like_valid_company,
+    normalize_company,
+    parse_experience_text,
 )
-
-EMPLOYMENT_TYPE_KEYWORDS = frozenset({
-    "full-time", "part-time", "contract", "freelance", "self-employed",
-    "internship", "temporary", "seasonal", "apprenticeship",
-    "on-site", "remote", "hybrid",
-})
-
-DURATION_ONLY_RE = re.compile(
-    r"^\d+\s+(yr|yrs|year|years|mo|mos|month|months)"
-    r"(\s+\d+\s+(mo|mos|month|months))?\s*$",
-    re.IGNORECASE,
-)
-
-# LinkedIn sometimes uses non-ASCII hyphens (e.g. U+2011 non-breaking hyphen)
-# in strings like "Full‑time". Normalise before keyword lookup.
-_UNICODE_DASH_RE = re.compile(r"[\u2010\u2011\u2012\u2013\u2014\u2212]")
-
-# Location lines (e.g. "Fresno, California, United States") should be skipped
-# just like employment-type or duration-only lines.
-_KNOWN_GEO_SUFFIXES = frozenset({
-    "united states", "canada", "united kingdom", "india", "australia",
-    "germany", "france", "singapore", "netherlands", "ireland",
-    "pakistan", "area",
-})
 
 HARDCODED_LINKEDIN_EMAIL = ""
 HARDCODED_LINKEDIN_PASSWORD = ""
-
-
-def clean_lines(text: str) -> list[str]:
-    return [line.strip() for line in text.splitlines() if line.strip()]
-
-
-def is_noise_line(line: str) -> bool:
-    # Normalise non-ASCII dashes (LinkedIn uses U+2011 non-breaking hyphen, etc.)
-    normalised = _UNICODE_DASH_RE.sub("-", line.strip()).lower()
-    # Also inspect only the segment before any · separator.
-    # This catches compound group-header lines like "Full-time · 4 yrs 10 mos"
-    # where just the primary part is an employment-type keyword.
-    primary = normalised.split("·")[0].strip()
-    if normalised in EMPLOYMENT_TYPE_KEYWORDS or primary in EMPLOYMENT_TYPE_KEYWORDS:
-        return True
-    if DURATION_ONLY_RE.match(normalised):
-        return True
-    # Location lines like "Fresno, California, United States"
-    if any(normalised.endswith(suffix) for suffix in _KNOWN_GEO_SUFFIXES):
-        return True
-    return False
 
 
 def profile_experience_url(profile_url: str) -> str:
@@ -110,80 +71,21 @@ def profile_experience_url(profile_url: str) -> str:
 
 def extract_top_experience(page) -> dict | None:
     """
-    Attempts to extract:
-    - title
-    - company
-    - date range
-    - current employment status
-
-    Uses lightweight text heuristics.
+    Read the page text and parse the most recent experience entry.
+    The line-walking logic is in employment_parse.parse_experience_text().
     """
-
-    selectors = [
-        "main",
-        "body",
-    ]
-
-    for selector in selectors:
+    for selector in ("main", "body"):
         try:
             text = page.locator(selector).first.inner_text(timeout=5000)
-            lines = clean_lines(text)
-
-            for i, line in enumerate(lines):
-                date_match = DATE_RANGE_RE.search(line)
-
-                if not date_match:
-                    continue
-
-                date_range = date_match.group(0)
-
-                # Walk backward from the date line, collecting the first two
-                # non-noise, non-date lines. Track whether any noise was skipped.
-                #
-                # LinkedIn renders two layouts:
-                #   Simple entry  → Title, Company, Date  (no noise)
-                #   Grouped entry → Company (header), [duration noise], Title,
-                #                   [employment-type noise], Date
-                #
-                # When no noise is skipped: non_noise[0]=company, [1]=title
-                # When noise was skipped:   non_noise[0]=title,   [1]=company
-                non_noise: list[str] = []
-                noise_skipped = False
-                j = i - 1
-                while j >= 0 and len(non_noise) < 2:
-                    candidate = lines[j].strip()
-                    if DATE_RANGE_RE.search(candidate):
-                        break
-                    if is_noise_line(candidate):
-                        noise_skipped = True
-                    else:
-                        non_noise.append(candidate)
-                    j -= 1
-
-                if len(non_noise) >= 2:
-                    if noise_skipped:
-                        title   = non_noise[0].split("·")[0].strip()
-                        company = non_noise[1].split("·")[0].strip()
-                    else:
-                        company = non_noise[0].split("·")[0].strip()
-                        title   = non_noise[1].split("·")[0].strip()
-                elif len(non_noise) == 1:
-                    company = non_noise[0].split("·")[0].strip()
-                    title   = ""
-                else:
-                    continue
-
-                return {
-                    "title": title,
-                    "company": company,
-                    "date_range": date_range.strip(),
-                    "is_current": "present" in date_range.lower(),
-                }
-
         except PlaywrightTimeoutError:
             continue
         except Exception as exc:
             print(f"extract_top_experience error: {exc}")
+            continue
+
+        entry = parse_experience_text(text)
+        if entry:
+            return entry
 
     return None
 
@@ -388,6 +290,7 @@ def process_csv(
     headless: bool,
     delay_s: float,
     limit: int | None,
+    only_still_no: bool = False,
 ) -> None:
 
     with input_csv.open(newline="", encoding="utf-8") as f:
@@ -398,11 +301,9 @@ def process_csv(
 
         fieldnames = list(rows[0].keys())
 
-    if "Still_Employed" not in fieldnames:
-        fieldnames.append("Still_Employed")
-
-    if "Employment_Changed" not in fieldnames:
-        fieldnames.append("Employment_Changed")
+    for column in EXTRA_COLUMNS:
+        if column not in fieldnames:
+            fieldnames.append(column)
 
     checked = 0
 
@@ -435,10 +336,12 @@ def process_csv(
                 f"{row.get('Last Name', '').strip()}"
             ).strip()
 
-            if not url.startswith("http"):
-                row["Still_Employed"] = "No"
+            if only_still_no and row.get("Still_Employed") != "No":
+                continue
 
-                print(f"[{idx}] {full_name}: missing profile URL -> No")
+            if not url.startswith("http"):
+                # A missing URL says nothing about employment; leave the row alone.
+                print(f"[{idx}] {full_name}: missing profile URL, skipped")
 
                 checked += 1
                 continue
@@ -474,74 +377,37 @@ def process_csv(
 
                 experience = extract_top_experience(page)
 
-                if not experience:
-                    row["Still_Employed"] = "No"
+                if experience:
+                    print(f"    Current Company: {experience['company']}")
+                    print(f"    Current Title: {experience['title']}")
+                    print(f"    Current Dates: {experience['date_range']}")
 
-                    print("    Could not extract experience.")
+                old_company = row.get("Company") or ""
+                status = apply_experience_to_row(row, experience)
 
-                else:
-                    current_company_raw = experience["company"]
-                    current_company = (
-                        current_company_raw
-                        .split("·")[0]
-                        .strip()
-                    )
-                    current_title = experience["title"]
-                    current_dates = experience["date_range"]
-
-                    csv_company = (
-                        (row.get("Company") or "")
-                        .split("·")[0]
-                        .strip()
-                    )
-
-                    print(f"    Current Company: {current_company}")
-                    print(f"    Current Title: {current_title}")
-                    print(f"    Current Dates: {current_dates}")
-
-                    if not experience["is_current"]:
-                        row["Still_Employed"] = "No"
-
-                        print("    No current employment found.")
-
-                    else:
-                        row["Still_Employed"] = ""
-
-                        if (
-                            csv_company.lower()
-                            != current_company.lower()
-                        ):
-                            print("    Employment changed detected.")
-
-                            print(f"       OLD: {csv_company}")
-                            print(f"       NEW: {current_company}")
-
-                            row["Company"] = current_company
-
-                            if "Position" in row:
-                                row["Position"] = current_title
-
-                            if "Title" in row:
-                                row["Title"] = current_title
-
-                            if "Start_Date" in row:
-                                row["Start_Date"] = (
-                                    current_dates.split("-")[0].strip()
-                                )
-
-                            row["Employment_Changed"] = "Yes"
-
-                        else:
-                            row["Employment_Changed"] = ""
+                if status == "no-extract":
+                    print("    Could not extract experience; row left unchanged.")
+                elif status == "not-current":
+                    print("    No current employment found.")
+                elif status == "unknown-company":
+                    print("    Current role found but company unreadable; row left unchanged.")
+                elif status == "changed":
+                    print("    Employment changed.")
+                    print(f"       OLD: {old_company}")
+                    print(f"       NEW: {row.get('Company')}")
+                elif status == "review":
+                    print("    New company does not look like an employer; Company NOT changed.")
+                    print(f"       KEPT:    {old_company}")
+                    print(f"       SCRAPED: {row.get('Scraped_Company')}  (flagged Review)")
 
                 checked += 1
 
                 time.sleep(delay_s)
 
             except Exception as exc:
-                row["Still_Employed"] = "No"
-
-                print(f"    Error: {exc}")
+                # An error (timeout, login wall, layout change) is not evidence
+                # that the person left their job, so the row is left unchanged.
+                print(f"    Error: {exc}; row left unchanged.")
 
                 checked += 1
 
@@ -633,6 +499,16 @@ def parse_args() -> argparse.Namespace:
         help="Only process first N rows",
     )
 
+    parser.add_argument(
+        "--recheck-no",
+        action="store_true",
+        help=(
+            "Only re-verify rows currently marked Still_Employed=No (use the "
+            "already-updated CSV as --input/--output). Fixes false 'No' values "
+            "written by earlier runs that treated errors as 'left the job'."
+        ),
+    )
+
     return parser.parse_args()
 
 
@@ -675,6 +551,7 @@ def main() -> int:
             headless=args.headless,
             delay_s=args.delay,
             limit=args.limit,
+            only_still_no=args.recheck_no,
         )
 
         return 0
