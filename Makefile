@@ -1,8 +1,16 @@
+# Bound to localhost on purpose: the default (all interfaces) would serve .git and
+# old-data/ (raw exports with email addresses) to anyone on the same network.
 start:
-	python3 -m http.server 8080
+	python3 -m http.server 8080 --bind 127.0.0.1
 
 test:
 	python3 test_edge_cases.py
+
+test-search:
+	node --test "tests/*.test.js"
+
+test-parse:
+	python3 tests/test_employment_parse.py -v
 
 scan-jobs:
 	.venv/bin/python scan_company_jobs.py --force

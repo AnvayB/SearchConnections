@@ -1,8 +1,74 @@
-/* Add or update these styles for result sections */
+/* ==========================================================================
+   LinkedIn Connections Search
+   Palette: indigo/violet page, rose search bar, three owner colours
+   (teal / amber / sky) for the stat tiles, LinkedIn-blue gradient jobs buttons,
+   green / red / blue borders on the result cards.
+   ========================================================================== */
+
+:root {
+  --indigo: #5b5bd6;
+  --indigo-dark: #4338ca;
+  --rose: #f6789a;
+  --line: #e5e7eb;
+
+  /* one colour per connections list: tile tint, and the dot that marks people */
+  --anvay: #2fbf94;
+  --anil: #f0b93a;
+  --bilwa: #5a9ee6;
+  --anvay-tint: #c9f2e0;
+  --anil-tint: #fdeab5;
+  --bilwa-tint: #cfe2fb;
+}
+
+/* --- flat banners and tiles (replacing the old per-element gradients) --- */
+.banner-search { background: var(--rose); }
+.banner-indigo { background: var(--indigo); }
+
+.tile { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
+.tile-anvay { background: var(--anvay-tint); }
+.tile-anil { background: var(--anil-tint); }
+.tile-bilwa { background: var(--bilwa-tint); }
+
+/* placeholder text must be readable (#6b7280 on white = 4.8:1) */
+input[type="text"]::placeholder {
+  color: #6b7280;
+  opacity: 1;
+}
+
+/* room for the clear button; an id beats Tailwind's responsive sm:px-* utilities */
+#companySearch {
+  padding-right: 3.25rem !important;
+}
+
+/* clear (x) button: 32x32 target, readable colour */
+.clear-btn {
+  right: 0.75rem;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  line-height: 30px;
+  text-align: center;
+  color: #4b5563;
+  border-radius: 9999px;
+}
+
+.clear-btn:hover {
+  color: #111827;
+  background: #f3f4f6;
+}
+
+.clear-btn:focus-visible,
+.tab-btn:focus-visible,
+.jobs-link-btn:focus-visible {
+  outline: 3px solid var(--indigo-dark);
+  outline-offset: 2px;
+}
+
+/* --- cards and tables ---------------------------------------------------- */
 .result-card {
   padding: 1rem;
   border-radius: 1rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
   margin-bottom: 2rem;
   background: #fff;
 }
@@ -21,39 +87,64 @@
   font-size: 0.875rem;
 }
 
+/* light table chrome: small grey caps headers, thin rules (Bootstrap uses a 2px black rule) */
+.table th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.table > :not(:first-child) {
+  border-top: 1px solid var(--line);
+}
+
+/* "View" buttons: indigo instead of Bootstrap's bright blue (3.95:1 on the old tint) */
+.result-card .btn-outline-primary {
+  color: var(--indigo-dark);
+  border-color: var(--indigo-dark);
+}
+
+.result-card .btn-outline-primary:hover {
+  background: var(--indigo-dark);
+  border-color: var(--indigo-dark);
+  color: #fff;
+}
+
 @media (max-width: 768px) {
   .table {
     font-size: 0.75rem;
   }
-  
+
   .table th,
   .table td {
     padding: 0.5rem 0.25rem;
   }
-  
+
   .result-card {
     padding: 0.75rem;
     margin-bottom: 1.5rem;
   }
-  
+
   .result-header {
     font-size: 1.1rem;
     margin-bottom: 0.75rem;
   }
-  
+
   /* Make LinkedIn buttons smaller on mobile */
   .btn-sm {
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
   }
-  
+
   /* Adjust badge sizes for mobile */
   .badge-closeness-1,
   .badge-closeness-2 {
     font-size: 0.75rem;
     padding: 0.2em 0.5em;
   }
-  
+
   /* Improve touch targets */
   .suggestion-item {
     padding: 0.75rem 1rem !important;
@@ -61,39 +152,112 @@
     display: flex;
     align-items: center;
   }
-  
+
   /* Better spacing for mobile results */
   .mb-4 {
     margin-bottom: 1rem !important;
   }
-  
+
   .mt-8 {
     margin-top: 2rem !important;
   }
 }
 
-/* Match result section colors to the count cards */
-.result-anvay {
-  border: 2px solid green; /* teal-200 */
-  background:  rgb(221, 244, 251); /* from-teal-200 to-lime-200 */
-}
-.result-anil {
-  border: 2px solid red; /* yellow-200 */
-  background:  rgb(221, 244, 251); /* from-teal-200 to-lime-200 */
+/* --- narrow screens: each table row becomes a stacked card (labels from data-label) --- */
+@media (max-width: 640px) {
+  .result-card .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
 
+  .result-card .table,
+  .result-card .table tbody,
+  .result-card .table tr,
+  .result-card .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .result-card .table {
+    font-size: 0.875rem;
+  }
+
+  .result-card .table tbody tr:not(.disclaimer-row):not(.previous-row) {
+    margin-bottom: 0.6rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.85);
+  }
+
+  .result-card .table td {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.15rem 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .result-card .table td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 4.75rem;
+    padding-top: 0.2rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+  }
+
+  .result-card .table td[data-label="Name"] {
+    display: block;
+    font-size: 1rem;
+  }
+
+  .result-card .table td[data-label="Name"]::before { display: none; }
+
+  /* the note rows belong to the card above them */
+  .result-card .table .disclaimer-row,
+  .result-card .table .previous-row {
+    margin: -0.35rem 0 0.6rem;
+  }
+
+  .result-card .table .disclaimer-cell,
+  .result-card .table .previous-cell {
+    display: block;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.5rem;
+  }
 }
+
+/* --- result cards: pale blue fill, coloured border per connections list --- */
+.result-anvay,
+.result-anil,
 .result-bilwa {
-  border: 2px solid blue; /* sky-200 */
-  background:  rgb(221, 244, 251); /* from-teal-200 to-lime-200 */
-
+  background: rgb(221, 244, 251);
 }
+
+.result-anvay { border: 2px solid green; }
+.result-anil { border: 2px solid red; }
+.result-bilwa { border: 2px solid blue; }
+
 .result-header {
   font-size: 1.25rem;
   font-weight: 700;
   margin-bottom: 1rem;
   color: #333;
 }
-/* Closeness badge styles */
+
+/* The page heading's company name: indigo, not Bootstrap blue (needs !important to beat .text-primary) */
+.search-header-title .text-primary {
+  color: var(--indigo-dark) !important;
+}
+
+/* Closeness badge styles (only rendered if a Closeness column is ever shown) */
 .badge-closeness-1 {
   border: 2px solid #22c55e; /* green-500 */
   background: #bbf7d0;      /* green-200 */
@@ -113,7 +277,8 @@
   padding: 0.25em 0.75em;
   font-size: 1em;
   display: inline-block;
-} 
+}
+
 /* Disclaimer row for no-longer-employed connections */
 .disclaimer-row .disclaimer-cell {
   background: #fff8e1;
@@ -124,28 +289,27 @@
   border-top: none;
 }
 
-/* Company highlight colors for multi-company search */
-.company-highlight-0 {
-  border: 2px solid #f87171; /* red-400 */
-  background: #fee2e2;      /* red-100 */
-}
-.company-highlight-1 {
-  border: 2px solid #60a5fa; /* blue-400 */
-  background: #dbeafe;      /* blue-100 */
-}
-.company-highlight-2 {
-  border: 2px solid #34d399; /* green-400 */
-  background: #d1fae5;      /* green-100 */
-}
-.company-highlight-3 {
-  border: 2px solid #fbbf24; /* yellow-400 */
-  background: #fef3c7;      /* yellow-100 */
-}
-.company-highlight-4 {
-  border: 2px solid #a78bfa; /* purple-400 */
-  background: #ede9fe;      /* purple-100 */
+.previous-row .previous-cell {
+  font-size: 0.85rem;
+  color: #4b5563;
+  background: #f3f4f6;
+  border-top: none;
 }
 
+.also-in {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 0.15rem;
+}
+
+/* Company highlight colours for multi-company search (override the owner fill/border) */
+.company-highlight-0 { border: 2px solid #f87171; background: #fee2e2; } /* red */
+.company-highlight-1 { border: 2px solid #60a5fa; background: #dbeafe; } /* blue */
+.company-highlight-2 { border: 2px solid #34d399; background: #d1fae5; } /* green */
+.company-highlight-3 { border: 2px solid #fbbf24; background: #fef3c7; } /* yellow */
+.company-highlight-4 { border: 2px solid #a78bfa; background: #ede9fe; } /* purple */
+
+/* --- search result header and jobs buttons ------------------------------- */
 .search-header-row {
   display: flex;
   flex-direction: column;
@@ -160,6 +324,12 @@
     justify-content: space-between;
     gap: 1rem;
   }
+}
+
+.search-header-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .search-header-title {
@@ -190,10 +360,26 @@
   box-shadow: 0 6px 16px rgba(10, 102, 194, 0.4);
 }
 
+/* no known company page: a job-search link, visually quieter than a direct page */
+.jobs-link-btn-search {
+  background: #fff;
+  color: #334155;
+  border: 1.5px solid #94a3b8;
+  box-shadow: none;
+}
+
+.jobs-link-btn-search:hover {
+  color: #1e293b;
+  background: #f1f5f9;
+  border-color: #64748b;
+  box-shadow: none;
+}
+
 .multi-company-block:first-child {
   margin-top: 0;
 }
 
+/* --- tabs ---------------------------------------------------------------- */
 .tab-bar {
   justify-content: center;
 }
@@ -201,190 +387,278 @@
 .tab-btn {
   flex: 1;
   max-width: 220px;
-  border: none;
+  border: 2px solid #c7d2fe;
   border-radius: 9999px;
-  padding: 0.75rem 1.25rem;
+  padding: calc(0.75rem - 2px) 1.25rem;
   font-weight: 700;
-  color: #4338ca;
-  background: #eef2ff;
-  transition: all 0.2s ease;
+  color: var(--indigo-dark);
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .tab-btn:hover {
-  background: #e0e7ff;
-}
-
-.tab-btn-active {
-  color: #fff;
-  background: linear-gradient(90deg, #6366f1, #8b5cf6);
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
-}
-
-.companies-table-container {
-  margin-top: 0.5rem;
-}
-
-.companies-table-card {
-  border: 2px solid #6366f1;
-}
-
-.companies-table th,
-.companies-table td {
-  vertical-align: middle;
-}
-
-.companies-table td:last-child {
-  white-space: nowrap;
-}
-
-.jobs-table-card {
-  border: 2px solid #6366f1;
-}
-
-.jobs-table th,
-.jobs-table td {
-  vertical-align: middle;
-}
-
-.jobs-sortable {
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-}
-
-.jobs-sortable:hover {
   background: #eef2ff;
 }
 
-.jobs-table tbody tr[title] {
-  cursor: help;
+/* :hover is listed too: .tab-btn:hover would otherwise out-rank this rule and turn
+   the active tab pale while its text stays white */
+.tab-btn-active,
+.tab-btn-active:hover {
+  color: #fff;
+  background: var(--indigo);
+  border-color: var(--indigo);
 }
 
-.company-jobs-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.company-jobs-card {
-  border: 2px solid #6366f1;
-}
-
-.company-jobs-header {
+/* --- Companies tab: one card per company, people shown as chips --------- */
+.company-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.company-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-@media (min-width: 640px) {
-  .company-jobs-header {
-    flex-direction: row;
-    align-items: flex-start;
-  }
+.company-row:hover {
+  background: #f5f5ff;
+  border-color: #c7d2fe;
 }
 
-.company-jobs-name {
-  margin: 0 0 0.35rem;
-  font-size: 1.2rem;
+.company-row-main { min-width: 0; flex: 1; }
+
+.company-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+}
+
+.company-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 1.05rem;
   font-weight: 700;
-  color: #312e81;
+  color: var(--indigo-dark);
+  text-align: left;
+  cursor: pointer;
 }
 
-.company-jobs-meta {
+.company-open:hover { text-decoration: underline; }
+
+.company-open:focus-visible {
+  outline: 3px solid var(--indigo-dark);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+.company-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.company-row-jobs {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  align-items: center;
-}
-
-.connection-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.65rem;
-  border-radius: 9999px;
-  background: #ecfdf5;
-  color: #065f46;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.company-jobs-badges {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.company-jobs-section-title {
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #64748b;
-  margin-bottom: 0.65rem;
-}
-
-.company-jobs-items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.company-job-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.65rem;
-  background: #f8fafc;
-}
-
-.company-job-title {
-  line-height: 1.35;
-}
-
-.company-jobs-empty {
-  margin: 0;
-  color: #64748b;
-  font-style: italic;
-}
-
-.role-badge {
-  display: inline-block;
-  padding: 0.15rem 0.55rem;
-  border-radius: 9999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  white-space: nowrap;
+  justify-content: flex-end;
   flex-shrink: 0;
 }
 
-.role-badge-swe {
-  background: #dbeafe;
-  color: #1e40af;
+.company-empty {
+  padding: 1.25rem;
+  border: 1px dashed #c7d2fe;
+  border-radius: 0.9rem;
+  color: #4b5563;
 }
 
-.role-badge-da {
-  background: #fef3c7;
-  color: #92400e;
+.member-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
 }
 
-.role-badge-de {
-  background: #ede9fe;
-  color: #5b21b6;
+.member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  background: #f3f4f6;
+  font-size: 0.82rem;
+  color: #1f2937;
 }
 
-.role-badge-dsml {
-  background: #dcfce7;
-  color: #166534;
+.owner-dots { display: inline-flex; gap: 2px; }
+
+.owner-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
 }
 
-.role-badge-other {
-  background: #f1f5f9;
-  color: #475569;
+.owner-anvay { background: var(--anvay); }
+.owner-anil { background: var(--anil); }
+.owner-bilwa { background: var(--bilwa); }
+
+.owner-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+}
+
+/* --- landing view (before the first search) ------------------------------ */
+.landing {
+  text-align: center;
+  padding: 0.5rem 0 1rem;
+}
+
+.landing-summary {
+  margin: 0 0 1.25rem;
+  color: #4b5563;
+  font-size: 1.05rem;
+}
+
+.landing-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  margin-bottom: 0.6rem;
+}
+
+.landing-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.landing-chip {
+  padding: 0.45rem 0.95rem;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--indigo-dark);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.landing-chip:hover { background: #eef2ff; }
+
+.landing-chip:focus-visible {
+  outline: 3px solid var(--indigo-dark);
+  outline-offset: 2px;
+}
+
+.landing-chip-count {
+  margin-left: 0.25rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 9999px;
+  background: #eef2ff;
+  font-size: 0.78rem;
+}
+
+/* --- login ----------------------------------------------------------------- */
+.login-panel {
+  max-width: 24rem;
+  margin: 1rem auto 2rem;
+  text-align: left;
+}
+
+.login-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.login-row { display: flex; gap: 0.5rem; }
+
+.login-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.65rem 1rem;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 9999px;
+  font-size: 1rem;
+}
+
+.login-input:focus {
+  outline: 3px solid var(--indigo-dark);
+  outline-offset: 1px;
+}
+
+.login-input[aria-invalid="true"] { border-color: #b91c1c; }
+
+.login-btn {
+  padding: 0.65rem 1.4rem;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--indigo);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.login-btn:hover { background: var(--indigo-dark); }
+
+.login-btn:focus-visible {
+  outline: 3px solid var(--indigo-dark);
+  outline-offset: 2px;
+}
+
+.login-error {
+  margin: 0.6rem 0 0;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+/* long labels ("Amazon Web Services (AWS) Jobs") must wrap instead of overflowing the card */
+.company-row-jobs .jobs-link-btn {
+  max-width: 100%;
+  white-space: normal;
+}
+
+@media (max-width: 640px) {
+  .company-row { flex-direction: column; }
+  .company-row-jobs { justify-content: flex-start; max-width: 100%; }
+}
+
+/* --- dropdown, load errors ----------------------------------------------- */
+.suggestion-item.suggestion-active {
+  background: #e0e7ff;
+}
+
+.suggestion-more {
+  border-top: 1px solid var(--line);
+  background: #f9fafb;
+}
+
+.load-error-banner {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
 }
