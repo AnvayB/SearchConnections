@@ -781,9 +781,12 @@ function renderLanding() {
   const chipsBox = document.getElementById('landingChipsBox');
   if (!summary || !chips) return;
 
-  const counts = Object.keys(OWNER_LABELS).map(k => `${OWNER_LABELS[k].replace(/'s$/, '')} ${dataStore[k].length}`);
+  const pills = Object.keys(OWNER_LABELS).map(k =>
+    `<div class="landing-stat tile-${k}"><span class="landing-stat-n">${dataStore[k].length}</span><span class="landing-stat-l">${OWNER_LABELS[k]} list</span></div>`
+  ).join('');
   const companies = Array.from(companyGroups.keys()).filter(k => k !== NO_COMPANY_KEY).length;
-  summary.innerHTML = `<strong>${ownersByPerson.size}</strong> people across 3 lists (${counts.join(' · ')}), at <strong>${companies}</strong> companies.`;
+  summary.innerHTML = `<div class="landing-stats">${pills}</div>` +
+    `<p class="landing-total"><strong>${ownersByPerson.size}</strong> unique people at <strong>${companies}</strong> companies</p>`;
 
   const top = sharedCompanyGroups().slice(0, LANDING_CHIPS);
   chips.innerHTML = top.map(g =>
@@ -808,6 +811,13 @@ function ownerDots(owners) {
   return Object.keys(OWNER_LABELS)
     .filter(k => owners.has(k))
     .map(k => `<span class="owner-dot owner-${k}"></span>`).join('');
+}
+
+// Soft background for a person chip: the list's tint, or a blend when they are in several lists.
+function chipBackground(owners) {
+  const tints = Object.keys(OWNER_LABELS).filter(k => owners.has(k)).map(k => `var(--${k}-tint)`);
+  if (tints.length === 1) return tints[0];
+  return `linear-gradient(90deg, ${tints.join(', ')})`;
 }
 
 function ownerListLabel(owners) {
@@ -840,7 +850,7 @@ function renderCompaniesView() {
     const buttons = createJobsButtons(names);
     const members = Array.from(group.members.values())
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map(m => `<li class="member-chip" title="In ${escapeHtml(ownerListLabel(m.owners))} list"><span class="owner-dots" aria-hidden="true">${ownerDots(m.owners)}</span>${escapeHtml(m.name)}<span class="sr-only"> (in ${escapeHtml(ownerListLabel(m.owners))} list)</span></li>`)
+      .map(m => `<li class="member-chip" style="background: ${chipBackground(m.owners)}" title="In ${escapeHtml(ownerListLabel(m.owners))} list"><span class="owner-dots" aria-hidden="true">${ownerDots(m.owners)}</span>${escapeHtml(m.name)}<span class="sr-only"> (in ${escapeHtml(ownerListLabel(m.owners))} list)</span></li>`)
       .join('');
     return `
       <div class="company-row" data-key="${escapeHtml(group.key)}">

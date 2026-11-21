@@ -126,6 +126,15 @@ test('Companies tab: sorted by unique people, each company lists its people with
   assert.equal((html.match(/<li class="member-chip"/g) || []).length, 5, '3 Google + 2 Amazon people');
 });
 
+test('Companies tab: chips are tinted by list, blended for people in several lists', () => {
+  const app = companiesApp();
+  app.run('renderCompaniesView()');
+  const html = app.els.jobsTableContainer.innerHTML;
+  assert.match(html, /style="background: var\(--anvay-tint\)"/);
+  assert.match(html, /style="background: var\(--bilwa-tint\)"|style="background: var\(--anil-tint\)"/);
+  assert.match(html, /style="background: linear-gradient\(90deg, var\(--anvay-tint\), var\(--anil-tint\)\)"/);
+});
+
 test('Companies tab: filter uses the same company grouping (aws finds Amazon)', () => {
   const app = companiesApp();
   app.els.jobsTableFilter = Object.assign(app.els.jobsTableFilter || {}, { value: 'aws' });
@@ -172,8 +181,11 @@ test('Companies tab: jobs buttons are real links and rows open the company on th
 test('Landing: summary and biggest-overlap chips, hidden once a search runs and back after clear', () => {
   const app = companiesApp();
   app.run('renderLanding()');
-  assert.match(app.els.landingSummary.innerHTML, /<strong>10<\/strong> people across 3 lists \(Anvay 8 · Anil 2 · Bilwa 1\)/);
-  assert.match(app.els.landingSummary.innerHTML, /<strong>5<\/strong> companies/);
+  const summary = app.els.landingSummary.innerHTML;
+  assert.match(summary, /tile-anvay"><span class="landing-stat-n">8<\/span><span class="landing-stat-l">Anvay&#39;s list|tile-anvay"><span class="landing-stat-n">8<\/span><span class="landing-stat-l">Anvay's list/);
+  assert.match(summary, /tile-anil"><span class="landing-stat-n">2</);
+  assert.match(summary, /tile-bilwa"><span class="landing-stat-n">1</);
+  assert.match(summary, /<strong>10<\/strong> unique people at <strong>5<\/strong> companies/);
   const chips = app.els.landingChips.innerHTML;
   assert.match(chips, /data-key="google"[^>]*>Google <span class="landing-chip-count">3</);
   assert.ok(chips.indexOf('Google') < chips.indexOf('Amazon'));
