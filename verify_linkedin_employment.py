@@ -339,6 +339,9 @@ def process_csv(
             if only_still_no and row.get("Still_Employed") != "No":
                 continue
 
+            if (row.get("Hidden") or "").strip().lower() in ("yes", "true", "1"):
+                continue  # deliberately hidden from the site; no need to re-check
+
             if not url.startswith("http"):
                 # A missing URL says nothing about employment; leave the row alone.
                 print(f"[{idx}] {full_name}: missing profile URL, skipped")

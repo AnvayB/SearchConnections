@@ -250,5 +250,9 @@ make test-parse    # scraper parsing and row-update rules (Python stdlib, no Lin
 
 ### CSV columns
 
-`First Name, Last Name, URL, Company, Position, [Connected On], Still_Employed, Employment_Changed, Previous_Company, Previous_Position, Scraped_Company, Scraped_Position`. The app only needs the first four; the rest add notes to results ("may no longer work here", "Previously at ...").
+`First Name, Last Name, URL, Company, Position, [Connected On], Still_Employed, Employment_Changed, Previous_Company, Previous_Position, Scraped_Company, Scraped_Position, [Hidden]`. The app only needs the first four; the rest add notes to results ("may no longer work here", "Previously at ...").
+
+**Hiding someone:** put `Yes` in an optional `Hidden` column. The row stays in the file but is never shown, searched or counted (and the scraper skips it). Use this for people with no current employment.
+
+**Editing a CSV:** bump `DATA_VERSION` in `script.js` afterwards. The CSV URLs include it, so browsers fetch the new file instead of a cached copy.
 

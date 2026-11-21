@@ -256,6 +256,30 @@ test('Login: wrong password shows an inline error, right password opens the app 
   assert.equal(app.els.loginPassword.getAttribute('aria-invalid'), null);
 });
 
+test('Hidden=Yes rows are loaded from the file but never shown, searched or counted', async () => {
+  const fields = ['First Name', 'Last Name', 'URL', 'Company', 'Hidden'];
+  const data = [
+    { 'First Name': 'Ann', 'Last Name': 'A', URL: 'https://x/a', Company: 'Acme', Hidden: '' },
+    { 'First Name': 'Bob', 'Last Name': 'B', URL: 'https://x/b', Company: 'Acme', Hidden: 'Yes' },
+    { 'First Name': 'Cy', 'Last Name': 'C', URL: 'https://x/c', Company: 'Solo', Hidden: ' yes ' }
+  ];
+  const app = loadApp({ papa: (p, o) => o.complete({ data: p.includes('anvay') ? data : [], meta: { fields } }) });
+  await app.run('loadAllCSVs()');
+  assert.equal(app.run('dataStore.anvay.length'), 1);
+  app.run(`searchCompany('Acme')`);
+  assert.equal(app.els.anvayCount.textContent, 1);
+  assert.doesNotMatch(app.els.resultsContainer.innerHTML, /Bob/);
+  assert.equal(app.run(`companyGroups.has('solo')`), false, 'a company with only hidden people disappears');
+  assert.equal(app.run('ownersByPerson.size'), 1);
+});
+
+test('CSV URLs carry a data version so a changed file is never served from cache', () => {
+  const app = loadApp();
+  const urls = app.run('Object.values(csvFiles)');
+  assert.equal(urls.length, 3);
+  urls.forEach(u => assert.match(u, /\.csv\?v=\d{8}-\d+$/));
+});
+
 test('Result rows: stacked-card labels, descriptive View links, escaped fields', () => {
   const app = loadApp({ rows: { anvay: [{ ...person('Acme <b>'), 'First Name': '<i>Ann', Position: 'Dev & "Ops"' }], anil: [], bilwa: [] } });
   app.run(`searchCompany('Acme')`);

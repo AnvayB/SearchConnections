@@ -3,10 +3,13 @@
 // Password configuration
 const CORRECT_PASSWORD = 'connections'; // Change this to your desired password
 
+// Bump DATA_VERSION whenever a CSV changes, so browsers do not keep serving a cached copy.
+const DATA_VERSION = '20261121-2';
+
 const csvFiles = {
-  anvay: 'updated_data/anvay-connections_updated.csv',
-  anil: 'updated_data/anil-connections_updated.csv',
-  bilwa: 'updated_data/bilwa-connections_updated.csv'
+  anvay: `updated_data/anvay-connections_updated.csv?v=${DATA_VERSION}`,
+  anil: `updated_data/anil-connections_updated.csv?v=${DATA_VERSION}`,
+  bilwa: `updated_data/bilwa-connections_updated.csv?v=${DATA_VERSION}`
 };
 
 const linkedInJobsFile = 'linkedin_jobs_final.csv?v=20261120-1';
@@ -61,8 +64,15 @@ function parseCsv(path, requiredColumns = []) {
   });
 }
 
+// A row marked Hidden=Yes (optional column) stays in the file but is never shown or counted,
+// e.g. someone with no current employment.
+function isHidden(row) {
+  return /^(yes|true|1)$/i.test((row.Hidden || '').trim());
+}
+
 async function loadCSV(path, label) {
-  dataStore[label] = await parseCsv(path, REQUIRED_COLUMNS);
+  const rows = await parseCsv(path, REQUIRED_COLUMNS);
+  dataStore[label] = rows.filter(row => !isHidden(row));
 }
 
 // Jobs links are an enhancement: if these files fail to load, every company simply
@@ -115,7 +125,7 @@ async function loadAllCSVs() {
       await loadCSV(csvFiles[key], key);
     } catch (err) {
       dataStore[key] = [];
-      failures.push({ file: csvFiles[key], message: (err && err.message) || String(err) });
+      failures.push({ file: csvFiles[key].split('?')[0], message: (err && err.message) || String(err) });
     }
   }
   await loadJobsLinks();
