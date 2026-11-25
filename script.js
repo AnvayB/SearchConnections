@@ -4,7 +4,7 @@
 const CORRECT_PASSWORD = 'connections'; // Change this to your desired password
 
 // Bump DATA_VERSION whenever a CSV changes, so browsers do not keep serving a cached copy.
-const DATA_VERSION = '20261121-2';
+const DATA_VERSION = '20261125-1';
 
 const csvFiles = {
   anvay: `updated_data/anvay-connections_updated.csv?v=${DATA_VERSION}`,
